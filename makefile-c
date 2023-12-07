@@ -1,0 +1,62 @@
+##############################################################################
+################################ makefile-c ##################################
+##############################################################################
+#                                                                            #
+#   complete makefile of TwoStageStochasticBlock                             #
+#                                                                            #
+#   The makefile defines internally all external libraries (comprised the    #
+#   SMS++ one) required by TwoStageStochasticBlock. Accordingly, all         #
+#   necessary OBJ, H, -I directives, external libraries + -L< libdirs > are  #
+#   added to the corresponding TSSBk* macros.                                #
+#                                                                            #
+#   Input:  $(CC)        = compiler command                                  #
+#           $(SW)        = compiler options                                  #
+#           $(TSSBkSDR)  = the directory where TwoStageStochasticBlock       #
+#                          source is                                         #
+#                                                                            #
+#   Output: $(TSSBkOBJ)  = the final object(s) / library                     #
+#           $(TSSBkLIB)  = external libraries + -L< libdirs >                #
+#           $(TSSBkH)    = the .h files to include for                       #
+#                          TwoStageStochasticBlock                           #
+#           $(TSSBkINC)  = the -I$( TwoStageStochasticBlock directory )      #
+#                                                                            #
+#                              Antonio Frangioni                             #
+#                         Dipartimento di Informatica                        #
+#                             Universita' di Pisa                            #
+#                                                                            #
+##############################################################################
+
+# define & include the necessary modules- - - - - - - - - - - - - - - - - - -
+# if a module is not used in the current configuration, just comment out the
+# corresponding include line
+# each module outputs some macros to be used here:
+# *OBJ is the final object/library
+# *H   is the list of all include files
+# *INC is the -I< include directories >
+
+# define input macros for SMS++ complete makefile, then include it
+SMS++SDR = $(TSSBkSDR)/../SMS++
+include $(SMS++SDR)/lib/makefile-c
+
+# define input macros for StochasticBlock makefile, then include it
+StcBlkSDR = $(TSSBkSDR)/../StochasticBlock
+include $(StcBlkSDR)/makefile
+
+# include makefile for libStOpt
+include $(TSSBkSDR)/../extlib/makefile-libStOpt
+
+# include the makefile requiring all external modules in input
+include $(TSSBkSDR)/makefile
+
+# macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# append external -I directives to TSSBkINC, TSSBkOBJ and TSSBkH as
+# defined by the makefile, thus the := assignment has to be used (use GNU make)
+TSSBkOBJ := $(TSSBkOBJ) $(StcBlkOBJ) $(SMS++OBJ)
+TSSBkH := $(TSSBkH) $(StcBlkH) $(SMS++H)
+TSSBkINC := $(SMS++INC) $(StcBlkINC) $(libStOptINC) $(TSSBkINC)
+
+# external libraries for TwoStageStochasticBlock
+TSSBkLIB = $(SMS++LIB) $(libStOptLIB)
+
+########################### End of makefile-c ################################
