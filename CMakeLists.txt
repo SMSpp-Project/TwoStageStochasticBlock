@@ -55,7 +55,6 @@ if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
 endif ()
 
-find_package(StOpt)
 find_package(OpenMP)
 find_package(Boost COMPONENTS mpi)
 find_package(MPI)
@@ -100,8 +99,7 @@ target_include_directories(
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
 target_link_libraries(${modName} PUBLIC
-                      ${modNamespace}::StochasticBlock
-                      StOpt::StOpt)
+                      ${modNamespace}::StochasticBlock)
 
 if (OPENMP_FOUND)
     target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)

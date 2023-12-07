@@ -18,7 +18,6 @@ get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
 # ----- Settings ------------------------------------------------------------ #
-set(StOpt_ROOT @Eigen3_ROOT@)
 set(TwoStageStochasticBlock_USE_MPI @TwoStageStochasticBlock_USE_MPI@)
 
 # ----- Requirements -------------------------------------------------------- #
@@ -26,7 +25,6 @@ find_dependency(StochasticBlock)
 
 # This is needed to find the custom modules we provide
 list(APPEND CMAKE_MODULE_PATH ${TwoStageStochasticBlock_CMAKE_DIR})
-find_dependency(StOpt)
 list(REMOVE_AT CMAKE_MODULE_PATH -1)
 
 # ----- Import target ------------------------------------------------------- #

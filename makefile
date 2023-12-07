@@ -15,7 +15,6 @@
 #           $(SMS++OBJ)    = the libSMS++ library itself                     #
 #           $(StcBlkH)     = the .h files to include for StochasticBlock     #
 #           $(StcBlkINC)   = the -I$( StochasticBlock source directory )     #
-#           $(libStOptINC) = the -I$(include directories) for libStOpt       #
 #           $(TSSBkSDR)    = the directory where the source is               #
 #                                                                            #
 #   Output: $(TSSBkOBJ)    = the final object(s) / library                   #
@@ -59,6 +58,6 @@ $(TSSBkSDR)/obj/TwoStageStochasticSolver.o: $(TSSBkSDR)/src/TwoStageStochasticSo
 	$(TSSBkSDR)/include/ScenarioSet.h \
 	$(TSSBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticSolver.cpp -o $@ $(TSSBkINC) \
-	$(StcBlkINC) $(libStOptINC) $(SMS++INC) $(SW)
+	$(StcBlkINC) $(SMS++INC) $(SW)
 
 ########################## End of makefile ###################################

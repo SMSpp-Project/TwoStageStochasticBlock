@@ -42,9 +42,6 @@ include $(SMS++SDR)/lib/makefile-c
 StcBlkSDR = $(TSSBkSDR)/../StochasticBlock
 include $(StcBlkSDR)/makefile
 
-# include makefile for libStOpt
-include $(TSSBkSDR)/../extlib/makefile-libStOpt
-
 # include the makefile requiring all external modules in input
 include $(TSSBkSDR)/makefile
 
@@ -54,9 +51,9 @@ include $(TSSBkSDR)/makefile
 # defined by the makefile, thus the := assignment has to be used (use GNU make)
 TSSBkOBJ := $(TSSBkOBJ) $(StcBlkOBJ) $(SMS++OBJ)
 TSSBkH := $(TSSBkH) $(StcBlkH) $(SMS++H)
-TSSBkINC := $(SMS++INC) $(StcBlkINC) $(libStOptINC) $(TSSBkINC)
+TSSBkINC := $(SMS++INC) $(StcBlkINC) $(TSSBkINC)
 
 # external libraries for TwoStageStochasticBlock
-TSSBkLIB = $(SMS++LIB) $(libStOptLIB)
+TSSBkLIB = $(SMS++LIB)
 
 ########################### End of makefile-c ################################

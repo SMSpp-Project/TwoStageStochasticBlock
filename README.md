@@ -9,7 +9,6 @@ These instructions will let you build TwoStageStochasticBlock on your system.
 ### Requirements
 
 - [SMS++ StochasticBlock](https://gitlab.com/smspp/stochasticblock)
-- [STochastic OPTimization library (StOpt)](https://gitlab.com/stochastic-control/StOpt)
 
 ### Build and install with CMake
 
