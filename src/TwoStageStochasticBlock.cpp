@@ -61,10 +61,10 @@ int TwoStageStochasticBlock::get_objective_sense() const {
  try {
   auto sub_Block = get_sub_Block( 0 );
   if( sub_Block )
-   return sub_Block->get_objective_sense();
+   return( sub_Block->get_objective_sense() );
  }
  catch( ... ) {}
- return Objective::eUndef;
+ return( Objective::eUndef );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -79,7 +79,7 @@ StochasticBlock * TwoStageStochasticBlock::get_sub_Block
                                 "invalid sub-Block index " +
                                 std::to_string( sub_block_index ) ) );
  const auto index = stage * num_sub_blocks_per_stage + sub_block_index;
- return static_cast< StochasticBlock * >( v_Block[ index ] );
+ return( static_cast< StochasticBlock * >( v_Block[ index ] ) );
 }
 
 /*--------------------------------------------------------------------------*/

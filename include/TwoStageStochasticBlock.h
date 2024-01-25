@@ -158,7 +158,8 @@ public:
  /** Serialize an TwoStageStochasticBlock into a netCDF::NcGroup with the format
   * explained in the comments of the deserialize() function.
   *
-  * @param group The NcGroup in which this TwoStageStochasticBlock will be serialized. */
+  * @param group The NcGroup in which this TwoStageStochasticBlock will be
+  *              serialized. */
 
  void serialize( netCDF::NcGroup & group ) const override;
 
@@ -174,7 +175,7 @@ public:
   * @return The number of stages.
   */
  virtual Index get_number_stages() const {
-  return v_Block.size() / num_sub_blocks_per_stage;
+  return( v_Block.size() / num_sub_blocks_per_stage );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -185,7 +186,7 @@ public:
   * @return The number of sub-Blocks for each stage.
   */
  Index get_num_sub_blocks_per_stage() const {
-  return num_sub_blocks_per_stage;
+  return( num_sub_blocks_per_stage );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -215,7 +216,7 @@ public:
  /// returns the set of scenarios
  /** This function returns the set of scenarios. */
  const ScenarioSet & get_scenario_set() const {
-  return scenario_set;
+  return( scenario_set );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -445,31 +446,31 @@ private:
   if( sub_group.isNull() ) {
    sub_group = group.getGroup( "StochasticBlock" );
    if( sub_group.isNull() )
-    throw std::logic_error( "TwoStageStochasticBlock::deserialize: neither "
-                            "group '" + sub_group_name +
-                            "' nor 'StochasticBlock' was found." );
+    throw( std::logic_error( "TwoStageStochasticBlock::deserialize: neither "
+                             "group '" + sub_group_name +
+                             "' nor 'StochasticBlock' was found." ) );
    sub_group_name = "StochasticBlock";
   }
 
   auto type = sub_group.getAtt( "type" );
   if( type.isNull() )
-   throw std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                           "'type' of '" + sub_group_name +
-                           "' must be present." );
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
+                            "'type' of '" + sub_group_name +
+                            "' must be present." ) );
 
   std::string type_name;
   type.getValues( type_name );
 
   if( type_name != "StochasticBlock" )
-   throw std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                           "'type' of '" + sub_group_name + "' must contain "
-                           "'StochasticBlock'." );
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
+                            "'type' of '" + sub_group_name + "' must contain "
+                            "'StochasticBlock'." ) );
 
   auto sub_Block = new_Block( sub_group , this );
 
   if( ! sub_Block )
-   throw std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group '" +
-                           sub_group_name + "' is incomplete." );
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
+                            "'" + sub_group_name + "' is incomplete." ) );
 
   if( sub_group_name != "StochasticBlock" ) {
 
@@ -479,21 +480,21 @@ private:
 
     auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
     if( StochasticBlock_group.isNull() )
-     throw std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group"
-                             "'Block' was not provided neither in '" +
-                             sub_group_name + "' nor in 'StochasticBlock'" );
+     throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
+                              "'Block' was not provided neither in '" +
+                              sub_group_name + "' nor in 'StochasticBlock'" ) );
 
     auto Block_group = StochasticBlock_group.getGroup( "Block" );
     if( Block_group.isNull() )
-     throw std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group"
-                             " 'Block' was not provided neither in '" +
-                             sub_group_name + "' nor in 'StochasticBlock'" );
+     throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
+                              "'Block' was not provided neither in '" +
+                              sub_group_name + "' nor in 'StochasticBlock'" ) );
 
     auto inner_block = new_Block( Block_group, this );
     if( ! inner_block )
-     throw std::logic_error( "TwoStageStochasticBlock::deserialize: the "
-                             "'Block' sub-group of the 'StochasticBlock' group "
-                             "has an invalid or incomplete description." );
+     throw( std::logic_error( "TwoStageStochasticBlock::deserialize: the "
+                              "'Block' sub-group of the 'StochasticBlock' group"
+                              "has an invalid or incomplete description." ) );
 
     static_cast< StochasticBlock * >( sub_Block )->
      set_inner_block( inner_block );
@@ -526,7 +527,7 @@ private:
    }
   }
 
-  return sub_Block;
+  return( sub_Block );
  }
 
 /*--------------------------------------------------------------------------*/
