@@ -8,7 +8,11 @@
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Rafael Durbano Lobato
+ * \author Donato Meoli \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
+ * \copyright &copy; by Rafael Durbano Lobato, Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -22,8 +26,10 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include "SMSTypedefs.h"
 #include <boost/multi_array.hpp>
+#include <random>
+
+#include "SMSTypedefs.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -299,13 +305,51 @@ public:
 /** @name Methods for modifying the ScenarioSet
  *  @{ */
 
+ /// defines the set of scenarios
+ void set_scenarios( ) {
+
+  // Construct the particles
+
+  distribution = std::normal_distribution< >( 0 , num_scenarios - 1 );
+
+  all_particles.resize( time_horizon );
+
+  const auto particle_length = size_random_data_groups.empty() ? 1 :
+                               size_random_data_groups.size();
+
+  for( Index t = 0 ; t < time_horizon ; ++t ) {
+
+   all_particles[ t ].resize( particle_length , num_scenarios );
+
+   for( Index i = 0 ; i < num_scenarios ; ++i ) {
+
+    auto sub_scenario_begin = this->sub_scenario_begin( i , t );
+    auto sub_scenario_end = this->sub_scenario_end( i , t );
+
+    if( particle_length == 1 )
+     all_particles[ t ]( 0 , i ) =
+      std::accumulate( sub_scenario_begin , sub_scenario_end , double( 0.0 ) ) /
+      std::distance( sub_scenario_begin , sub_scenario_end );
+    else {
+     Index start = 0;
+     for( Index k = 0 ; k < size_random_data_groups.size() ; ++k ) {
+      all_particles[ t ]( k , i ) =
+       std::accumulate( sub_scenario_begin + start ,
+                        sub_scenario_begin + start +
+                        size_random_data_groups[ k ] ,
+                        double( 0.0 ) ) / size_random_data_groups[ k ];
+      start += size_random_data_groups[ k ];
+     }
+    }
+   }
+  }
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*------------ METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSet ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of a ScenarioSet
  * @{ */
-
-/*--------------------------------------------------------------------------*/
 
  /// returns the number of scenarios in this ScenarioSet
  /** This function returns the number of scenarios in this ScenarioSet.
@@ -477,6 +521,65 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the particle associated with the given index
+ /** This function returns the particle associated with the given \p index.
+  *
+  * @param index The index of the particle to be returned.
+  *
+  * @return The particle associated with the given \p index. */
+
+ /*Eigen::VectorXd getOneParticle( const int & index ) const override {
+  return all_particles[ current_date_index ].col
+   ( indices_selected_particles[ index ] );
+ }*/
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns all particles associated with the current date
+ /** This function returns the matrix containing all particles associated with
+  * the current date. The number of particles is equal to the number of
+  * columns in this matrix and each column of this matrix is a particle.
+  *
+  * @return The matrix containing all particles. */
+
+ /*Eigen::MatrixXd getParticles() const override {
+
+  assert( decltype( indices_selected_particles )::size_type( number_simulations )
+          == indices_selected_particles.size() );
+
+  Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
+                             number_simulations );
+
+  for( int i = 0 ; i < number_simulations ; ++i ) {
+   particles.col( i ) = all_particles[ current_date_index ].col
+    ( indices_selected_particles[ i ] );
+  }
+
+  return particles;
+ }*/
+
+/**@} ----------------------------------------------------------------------*/
+/*--------- METHODS FOR READING THE DATA OF THE ScenarioSimulator ----------*/
+/*--------------------------------------------------------------------------*/
+/** @name Reading the data of the ScenarioSimulator
+    @{ */
+
+ /// returns the size of a particle
+ Index get_particle_length() const {
+  if( all_particles.empty() )
+   return 0;
+  return all_particles.front().rows();
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the total number of scenarios available
+ Index get_number_scenarios() const {
+  if( all_particles.empty() )
+   return 0;
+  return all_particles.front().cols();
+ }
+
 /**@} ----------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -495,6 +598,18 @@ protected:
 /** @name Protected fields
     @{ */
 
+ /// The vector containing the matrices representing the particles
+ /** This is a vector containing the particles for each time step. The t-th
+  * element in this vector is a matrix containing the particles associated
+  * with the time step t. For each of these matrices, each column is a
+  * particle. So, the number of particles is equal to the number of columns in
+  * a matrix and the dimension of each particle is equal to the number of rows
+  * in a matrix. */
+ std::vector< Eigen::MatrixXd > all_particles;
+
+ /// Distribution for selecting the particles
+ std::normal_distribution< > distribution;
+
  /// Number of scenarios
  Index num_scenarios;
 
@@ -504,7 +619,7 @@ protected:
  /// The size of each sub-scenario
  /** A scenario is divided into sub-scenarios, each sub-scenario being
   * associated with a time instant. This vector stores the size of each
-  * sub-scenario. For each t in {0, TimeHorizon -1}, sub_scenario_size[ t ] is
+  * sub-scenario. For each t in {0, TimeHorizon - 1}, sub_scenario_size[ t ] is
   * the size of the sub-scenario associated with time t.
   */
  std::vector< Index > sub_scenario_size;
