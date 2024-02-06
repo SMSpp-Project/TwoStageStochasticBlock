@@ -66,7 +66,7 @@ public:
 
  using Index = unsigned int;
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*--------------- CONSTRUCTING AND DESTRUCTING ScenarioSet -----------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Constructing and destructing ScenarioSet
@@ -76,7 +76,9 @@ public:
  /** Constructs a ScenarioSet
   */
 
- ScenarioSet() { }
+ ScenarioSet() {
+  random_number_engine.seed( initial_seed );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -208,11 +210,10 @@ public:
    // NumberRandomDataGroups and SizeRandomDataGroups.
 
    if( ! ::SMSpp_di_unipi_it::deserialize_dim
-       ( group , "NumberRandomDataGroups" , num_random_data_groups , true ) ) {
+       ( group , "NumberRandomDataGroups" , num_random_data_groups , true ) )
     // NumberRandomDataGroups was not provided. Hence, there must be a single
     // random data group.
     num_random_data_groups = 1;
-   }
    else {
     // NumberRandomDataGroups was provided. Now, we check SizeRandomDataGroups.
 
@@ -242,7 +243,7 @@ public:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*-------------- METHODS FOR Saving THE DATA OF THE ScenarioSet ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Saving the data of the ScenarioSet
@@ -299,18 +300,40 @@ public:
                                    size_random_data_groups , false );
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*---------------- METHODS FOR MODIFYING THE ScenarioSet -------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods for modifying the ScenarioSet
  *  @{ */
 
+ /// defines the number of simulations to be produced
+ void set_number_simulations( int n ) {
+  number_simulations = n;
+  indices_selected_particles.resize( number_simulations );
+ }
+
+/*--------------------------------------------------------------------------*/
+
+ /// indicates if the sampling of scenarios must be with or without replacement
+ /** This function determines if the sampling of scenarios must be done with
+  * or without replacement.
+  *
+  * @param with_replacement If true, the sampling is done with replacement.
+  *                         Otherwise, the sampling is done without replacement.
+  */
+
+ void set_sampling_replacement( bool with_replacement ) {
+  sampling_with_replacement = with_replacement;
+ }
+
+/*--------------------------------------------------------------------------*/
+
  /// defines the set of scenarios
  void set_scenarios( ) {
 
   // Construct the particles
-
-  distribution = std::normal_distribution< >( 0 , num_scenarios - 1 );
+  // TODO initialize with mean and std dev
+  distribution = std::normal_distribution< double >( 0 , num_scenarios - 1 );
 
   all_particles.resize( time_horizon );
 
@@ -345,7 +368,7 @@ public:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*------------ METHODS DESCRIBING THE BEHAVIOR OF A ScenarioSet ------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of a ScenarioSet
@@ -354,10 +377,11 @@ public:
  /// returns the number of scenarios in this ScenarioSet
  /** This function returns the number of scenarios in this ScenarioSet.
   *
-  * @return The number of scenarios. */
+  * @return The number of scenarios.
+  */
 
  Index size() const {
-  return num_scenarios;
+  return( num_scenarios );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -366,10 +390,11 @@ public:
  /** This function returns the size of a scenario in this ScenarioSet. Notice
   * that all scenarios have the same size.
   *
-  * @return The size of a scenario. */
+  * @return The size of a scenario.
+  */
 
  Index get_scenario_size() const {
-  return scenario_size;
+  return( scenario_size );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -377,10 +402,11 @@ public:
  /// returns the time horizon
  /** This function returns the time horizon
   *
-  * @return The time horizon. */
+  * @return The time horizon.
+  */
 
  Index get_time_horizon() const {
-  return time_horizon;
+  return( time_horizon );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -392,10 +418,11 @@ public:
   * then all random data groups have the same size, which is the same as the
   * size of the corresponding sub-scenario.
   *
-  * @return The size of each group of related random data. */
+  * @return The size of each group of related random data.
+  */
 
  const std::vector< Index > & get_size_random_data_groups() const {
-  return size_random_data_groups;
+  return( size_random_data_groups );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -407,7 +434,8 @@ public:
   *
   * @param i The index of a scenario, which must be between 0 and size() - 1.
   *
-  * @return A pointer to the array containing the data of scenario \p i. */
+  * @return A pointer to the array containing the data of scenario \p i.
+  */
 
  const double * scenario( Index i ) const {
   if( i >= size() )
@@ -415,8 +443,7 @@ public:
           ( "ScenarioSet::scenario: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
-
-  return scenarios[ i ].data();
+  return( scenarios[ i ].data() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -432,16 +459,15 @@ public:
   *          get_time_horizon() - 1.
   *
   * @return A pointer to the array containing the sub-scenario of scenario \p
-  *         i associated with time instant \p t. */
+  *         i associated with time instant \p t.
+  */
 
  const double * sub_scenario( Index i , Index t ) const {
-
   if( i >= size() )
    throw( std::invalid_argument
           ( "ScenarioSet::sub_scenario: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "."  ) );
-
   assert( t < get_time_horizon() );
   return( scenarios[ i ].data() + sub_scenario_start_index[ t ] );
  }
@@ -459,7 +485,8 @@ public:
   *          get_time_horizon() - 1.
   *
   * @return An iterator to the first element of the sub-scenario of scenario
-  *         \p i associated with time instant \p t. */
+  *         \p i associated with time instant \p t.
+  */
 
  std::vector< double >::const_iterator
  sub_scenario_begin( Index i , Index t ) const {
@@ -468,9 +495,8 @@ public:
           ( "ScenarioSet::sub_scenario_begin: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
-
   assert( t < get_time_horizon() );
-  return std::next( scenarios[ i ].cbegin() , sub_scenario_start_index[ t ] );
+  return( std::next( scenarios[ i ].cbegin() , sub_scenario_start_index[ t ] ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -488,7 +514,8 @@ public:
   *
   * @return An iterator to the element following the last element of the
   *         vector containing the sub-scenario of scenario \p i associated
-  *         with time instant \p t. */
+  *         with time instant \p t.
+  */
 
  std::vector< double >::const_iterator
  sub_scenario_end( Index i , Index t ) const {
@@ -497,10 +524,9 @@ public:
           ( "ScenarioSet::sub_scenario_end: Invalid scenario index " +
             std::to_string( i ) + ". The total number of scenarios is " +
             std::to_string( size() ) + "." ) );
-
   assert( t < get_time_horizon() );
-  return std::next( scenarios[ i ].cbegin() ,
-                    sub_scenario_start_index[ t + 1 ] );
+  return( std::next( scenarios[ i ].cbegin() ,
+                     sub_scenario_start_index[ t + 1 ] ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -512,53 +538,16 @@ public:
   * @param t A time instant, which must be between 0 and
   *        get_time_horizon() - 1.
   *
-  * @return The size of the sub-scenario associated with time instant \p t. */
+  * @return The size of the sub-scenario associated with time instant \p t.
+  */
 
  auto get_sub_scenario_size( Index t ) const {
   assert( t < get_time_horizon() );
-  return sub_scenario_start_index[ t + 1 ] - sub_scenario_start_index[ t ];
+  return( sub_scenario_start_index[ t + 1 ] -
+          sub_scenario_start_index[ t ] );
  }
 
 /*--------------------------------------------------------------------------*/
-
- /// returns the particle associated with the given index
- /** This function returns the particle associated with the given \p index.
-  *
-  * @param index The index of the particle to be returned.
-  *
-  * @return The particle associated with the given \p index. */
-
- /*Eigen::VectorXd getOneParticle( const int & index ) const override {
-  return all_particles[ current_date_index ].col
-   ( indices_selected_particles[ index ] );
- }*/
-
-/*--------------------------------------------------------------------------*/
-
- /// returns all particles associated with the current date
- /** This function returns the matrix containing all particles associated with
-  * the current date. The number of particles is equal to the number of
-  * columns in this matrix and each column of this matrix is a particle.
-  *
-  * @return The matrix containing all particles. */
-
- /*Eigen::MatrixXd getParticles() const override {
-
-  assert( decltype( indices_selected_particles )::size_type( number_simulations )
-          == indices_selected_particles.size() );
-
-  Eigen::MatrixXd particles( all_particles[ current_date_index ].rows() ,
-                             number_simulations );
-
-  for( int i = 0 ; i < number_simulations ; ++i ) {
-   particles.col( i ) = all_particles[ current_date_index ].col
-    ( indices_selected_particles[ i ] );
-  }
-
-  return particles;
- }*/
-
-/**@} ----------------------------------------------------------------------*/
 /*--------- METHODS FOR READING THE DATA OF THE ScenarioSimulator ----------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the data of the ScenarioSimulator
@@ -567,8 +556,8 @@ public:
  /// returns the size of a particle
  Index get_particle_length() const {
   if( all_particles.empty() )
-   return 0;
-  return all_particles.front().rows();
+   return( 0 );
+  return( all_particles.front().rows() );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -576,11 +565,11 @@ public:
  /// returns the total number of scenarios available
  Index get_number_scenarios() const {
   if( all_particles.empty() )
-   return 0;
-  return all_particles.front().cols();
+   return( 0 );
+  return( all_particles.front().cols() );
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -592,7 +581,45 @@ protected:
 /** @name Protected methods
     @{ */
 
-/**@} ----------------------------------------------------------------------*/
+ /// sample the particles
+ void sample() {
+  indices_selected_particles.resize( number_simulations );
+
+  if( sampling_with_replacement ) {
+   std::generate( indices_selected_particles.begin() ,
+                  indices_selected_particles.end() ,
+                  [ this ]() { return this->distribution
+                   ( this->random_number_engine ); } );
+   std::sort( indices_selected_particles.begin() ,
+              indices_selected_particles.end() );
+  }
+  else {
+   const auto number_scenarios = get_number_scenarios();
+
+   assert( decltype( number_scenarios )( number_simulations ) <=
+            number_scenarios );
+
+   if( decltype( number_scenarios )( number_simulations ) ==
+       number_scenarios ) {
+    std::iota( indices_selected_particles.begin() ,
+               indices_selected_particles.end() , 0 );
+   }
+   else {
+
+    if( indices_all_particles.size() != number_scenarios ) {
+     indices_all_particles.resize( number_scenarios );
+     std::iota( indices_all_particles.begin() ,
+                indices_all_particles.end() , 0 );
+    }
+
+    std::sample( indices_all_particles.begin() , indices_all_particles.end() ,
+                 indices_selected_particles.begin() ,
+                 number_simulations , random_number_engine );
+   }
+  }
+ }
+
+/*--------------------------------------------------------------------------*/
 /*-------------------------- PROTECTED FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Protected fields
@@ -604,11 +631,39 @@ protected:
   * with the time step t. For each of these matrices, each column is a
   * particle. So, the number of particles is equal to the number of columns in
   * a matrix and the dimension of each particle is equal to the number of rows
-  * in a matrix. */
+  * in a matrix.
+  */
  std::vector< Eigen::MatrixXd > all_particles;
 
  /// Distribution for selecting the particles
  std::normal_distribution< > distribution;
+
+ /// The vector containing the indices of the particles
+ /** This is a vector containing the indices of all particles, i.e., contains
+  * the set {0, 1, ..., number_scenarios - 1}.
+  */
+ std::vector< Index > indices_all_particles;
+
+ /// The vector containing the indices of the selected particles
+ std::vector< Index > indices_selected_particles;
+
+ /// Random number engine to select the simulations
+ std::mt19937 random_number_engine;
+
+ /// Initial seed for the random number engine
+ unsigned int initial_seed = 93645u;
+
+ /// Indicates whether the sampling must be performed with replacement
+ /** The sampling with replacement is a method of generating scenarios or
+  * samples from a probability distribution to represent uncertainty in the
+  * problem. This technique involves randomly selecting samples from a
+  * distribution, allowing for the possibility of selecting the same sample
+  * more than once (i.e., "with replacement").
+  */
+ bool sampling_with_replacement = false;
+
+ /// The number of simulations to be produced
+ int number_simulations = 0;
 
  /// Number of scenarios
  Index num_scenarios;
@@ -641,9 +696,13 @@ protected:
   */
  std::vector< Index > size_random_data_groups;
 
+ /// The time horizon
+ /** The time horizon represents the planning horizon or the period of time over
+  * which the decisions are made and evaluated.
+  */
  Index time_horizon;
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -688,8 +747,6 @@ private:
    scenarios_var.getVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
                          scenarios[ i ].data() );
  }
-
-/**@} ----------------------------------------------------------------------*/
 
 };   // end( class ScenarioSet )
 
