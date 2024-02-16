@@ -88,13 +88,13 @@ public:
 /*--------------------------------------------------------------------------*/
 
  /**
-  * - The "TimeHorizon" dimension, containing the time horizon.
+  * - The "TimeHorizon" dimension, containing the planning horizon or the
+  *    period of time over which the decisions are made and evaluated.
   *
-  * - The "NumberScenarios" dimension specifying the number of
-  *   scenarios.
+  * - The "NumberScenarios" dimension specifying the number of scenarios.
   *
-  * - The "ScenarioSize" dimension containing the size of a single
-  *   scenario, which spans all stages.
+  * - The "ScenarioSize" dimension containing the size of a single scenario,
+  *   which spans all stages.
   *
   * - The "SubScenarioSize" variable, of type netCDF::NcUint
   *   and indexed over dimension "TimeHorizon". This dimension is
@@ -141,29 +141,24 @@ public:
  void deserialize( const netCDF::NcGroup & group ) {
 
   // TimeHorizon
-
   ::SMSpp_di_unipi_it::deserialize_dim( group , "TimeHorizon" ,
                                         time_horizon , false );
 
   // NumberScenarios
-
   ::SMSpp_di_unipi_it::deserialize_dim( group , "NumberScenarios" ,
                                         num_scenarios , false );
 
   // ScenarioSize
-
   ::SMSpp_di_unipi_it::deserialize_dim( group , "ScenarioSize" ,
                                         scenario_size , false );
 
   // SubScenarioSize
-
   sub_scenario_start_index.resize( time_horizon + 1 );
 
   if( ::SMSpp_di_unipi_it::deserialize( group , "SubScenarioSize" ,
                                         time_horizon , sub_scenario_size ,
                                         true , false ) ) {
    // SubScenarioSize was provided
-
    if( scenario_size !=
        std::accumulate( sub_scenario_size.begin() ,
                         sub_scenario_size.end() ,
@@ -174,7 +169,6 @@ public:
   }
   else {
    // SubScenarioSize was not provided
-
    if( scenario_size % time_horizon != 0 )
     throw( std::logic_error( "ScenarioSet::deserialize: 'SubScenarioSize' was "
                              "not provided. Thus, 'ScenarioSize' must be a "
@@ -184,7 +178,6 @@ public:
   }
 
   // sub_scenario_start_index
-
   Index next_index = 0;
   for( Index i = 0 ; i < time_horizon ; ++i ) {
    sub_scenario_start_index[ i ] = next_index;
@@ -193,11 +186,9 @@ public:
   sub_scenario_start_index[ time_horizon ] = scenario_size;
 
   // Scenarios
-
   deserialize_scenarios( group );
 
   // NumberRandomDataGroups and SizeRandomDataGroups
-
   if( std::adjacent_find( sub_scenario_size.begin() , sub_scenario_size.end() ,
                           std::not_equal_to<>() ) != sub_scenario_size.end() ) {
    // Not all sub-scenarios have the same size. In this case, we consider a
@@ -205,10 +196,8 @@ public:
    num_random_data_groups = 1;
   }
   else {
-
    // All sub-scenarios have the same size. Thus, we check
    // NumberRandomDataGroups and SizeRandomDataGroups.
-
    if( ! ::SMSpp_di_unipi_it::deserialize_dim
        ( group , "NumberRandomDataGroups" , num_random_data_groups , true ) )
     // NumberRandomDataGroups was not provided. Hence, there must be a single
@@ -216,13 +205,11 @@ public:
     num_random_data_groups = 1;
    else {
     // NumberRandomDataGroups was provided. Now, we check SizeRandomDataGroups.
-
     if( ::SMSpp_di_unipi_it::deserialize
         ( group , "SizeRandomDataGroups" , num_random_data_groups ,
           size_random_data_groups , true , false ) ) {
 
      // SizeRandomDataGroups was provided.
-
      if( ( scenario_size / time_horizon ) != std::accumulate
          ( size_random_data_groups.begin() , size_random_data_groups.end() ,
            decltype( size_random_data_groups )::value_type(0) ) )
@@ -259,37 +246,31 @@ public:
  void serialize( netCDF::NcGroup & group ) const {
 
   // TimeHorizon
-
   auto TimeHorizon_dim = group.getDim( "TimeHorizon" );
   if( TimeHorizon_dim.isNull() )
    TimeHorizon_dim = group.addDim( "TimeHorizon" , get_time_horizon() );
 
   // NumberScenarios
-
   auto NumberScenarios_dim = group.addDim( "NumberScenarios" , num_scenarios );
 
   // ScenarioSize
-
   auto ScenarioSize_dim = group.addDim( "ScenarioSize" , scenario_size );
 
   // SubScenarioSize
-
   ::SMSpp_di_unipi_it::serialize( group , "SubScenarioSize" ,
                                   netCDF::NcUint() , TimeHorizon_dim ,
                                   sub_scenario_size , false );
 
   // Scenarios
-
   auto scenarios_var = group.addVar
    ( "Scenarios" , netCDF::NcDouble() ,
      { NumberScenarios_dim , ScenarioSize_dim } );
 
-  for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
+  for( decltype( scenarios )::size_type i = 0 ; i < scenarios.size() ; ++i )
    scenarios_var.putVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
                          scenarios[ i ].data() );
 
   // NumberRandomDataGroups and SizeRandomDataGroups
-
   auto NumberRandomDataGroups_dim = group.addDim( "NumberRandomDataGroups" ,
                                                   num_random_data_groups );
 
@@ -743,7 +724,7 @@ private:
             "dimensional array whose first and second dimensions have sizes "
             "'NumberScenarios' and 'ScenarioSize', respectively." ) );
 
-  for( decltype(scenarios)::size_type i = 0 ; i < scenarios.size() ; ++i )
+  for( decltype( scenarios )::size_type i = 0 ; i < scenarios.size() ; ++i )
    scenarios_var.getVar( { i , 0 } , { 1 , scenarios[ i ].size() } ,
                          scenarios[ i ].data() );
  }

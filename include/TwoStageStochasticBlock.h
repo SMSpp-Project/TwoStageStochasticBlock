@@ -145,7 +145,7 @@ public:
    num_sub_blocks_per_stage = n;
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
 /*--------------------------------------------------------------------------*/
 /** @name Saving the data of the TwoStageStochasticBlock
@@ -163,11 +163,22 @@ public:
 
  void serialize( netCDF::NcGroup & group ) const override;
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
 /*--------------------------------------------------------------------------*/
 /** @name Reading the data of the TwoStageStochasticBlock
     @{ */
+
+ /// returns the time horizon
+ /** This function returns the time horizon associated with this SDDPBlock.
+  *
+  * @return The time horizon.
+  */
+ virtual Index get_time_horizon() const {
+  return( v_Block.size() / num_sub_blocks_per_stage );
+ }
+
+/*--------------------------------------------------------------------------*/
 
  /// returns the number of stages
  /** This function returns the number of stages associated with this SDDPBlock.
@@ -233,7 +244,7 @@ public:
 
  int get_objective_sense() const override;
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods for handling Modification
@@ -241,130 +252,11 @@ public:
 
  void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*----- METHODS DESCRIBING THE BEHAVIOR OF AN TwoStageStochasticBlock ------*/
 /*--------------------------------------------------------------------------*/
 /** @name Methods describing the behavior of an TwoStageStochasticBlock
  * @{ */
-
- /// returns the current future cost of the given sub-Block at the given stage
- double get_future_cost( Index stage , Index sub_block_index ) const;
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem
-  * associated with the sub-Block with index \p sub_block_index at the given
-  * \p stage. The size of the \p values array parameter must be equal to the
-  * number N of state Variable of the problem at the given \p stage, so that
-  * the value of the i-th state Variable will be values( i ), for each i in
-  * {0, ..., N-1}.
-  *
-  * @param values The Eigen::ArrayXd containing the values of the Variable.
-  *
-  * @param stage The stage whose state Variable must be set. This must be an
-  *              integer between 0 and get_number_stages() - 1.
-  *
-  * @param sub_block_index The index of the sub-Block at the given \p
-  *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1. */
-
- void set_state( const Eigen::ArrayXd & values , Index stage ,
-                 Index sub_block_index );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the values of the state Variable of all sub-Blocks at the given stage
- /** This function sets the values of the state Variable of all sub-Blocks at
-  * the given \p stage. The size of the \p values array parameter must be
-  * equal to the number N of state Variable of the problem at the given \p
-  * stage, so that the value of the i-th state Variable will be values( i ),
-  * for each i in {0, ..., N-1}.
-  *
-  * @param values The Eigen::ArrayXd containing the values of the Variable.
-  *
-  * @param stage The stage whose state Variable must be set. This must be an
-  *              integer between 0 and get_number_stages() - 1. */
-
- void set_state( const Eigen::ArrayXd & values , Index stage ) {
-  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
-   set_state( values , stage , i );
- }
-
-/*--------------------------------------------------------------------------*/
-
- /// returns the values of the state Variable of the problem at the given stage
- /** This function returns the current values of the state Variable of the
-  * problem associated with the sub-Block with index \p sub_block_index at the
-  * given \p stage.
-  *
-  * @param stage The stage whose state Variable values are desired.
-  *
-  * @param sub_block_index The index of the sub-Block at the given \p
-  *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1.
-  *
-  * @return The current values of the state Variable of the problem at the
-  *         given \p stage. */
-
- std::vector< double > get_state( Index stage ,
-                                  Index sub_block_index = 0 ) const;
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem
-  * associated with the sub-Block with index \p sub_block_index at the given
-  * \p stage. The size of the \p values array parameter must be equal to the
-  * number N of state Variable of the problem at the given \p stage, so that
-  * the value of the i-th state Variable will be values[ i ], for each i in
-  * {0, ..., N-1}.
-  *
-  * @param values The vector containing the values of the Variable.
-  *
-  * @param stage The stage whose state Variable must be set.
-  *
-  * @param sub_block_index The index of the sub-Block at the given \p
-  *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1. */
-
- void set_state( const std::vector< double > & values , Index stage ,
-                 Index sub_block_index );
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the values of the state Variable of all sub-Blocks at the given stage
- /** This function sets the values of the state Variable of all sub-Blocks at
-  * the given \p stage. The size of the \p values array parameter must be
-  * equal to the number N of state Variable of the problem at the given \p
-  * stage, so that the value of the i-th state Variable will be values[ i ],
-  * for each i in {0, ..., N-1}.
-  *
-  * @param values The vector containing the values of the Variable.
-  *
-  * @param stage The stage whose state Variable must be set. */
-
- void set_state( const std::vector< double > & values , Index stage ) {
-  for( Index i = 0 ; i < num_sub_blocks_per_stage ; ++i )
-   set_state( values , stage , i );
- }
-
-/*--------------------------------------------------------------------------*/
-
- /// sets the values of the state Variable of the problem at the given stage
- /** This function sets the values of the state Variable of the problem
-  * associated with the sub-Block with index \p sub_block_index at the given
-  * \p stage, according to the admissible state of this TwoStageStochasticBlock.
-  *
-  * @param stage The stage whose state must be set.
-  *
-  * @param sub_block_index The index of the sub-Block at the given \p
-  *        stage. This must be an integer between 0 and
-  *        get_num_sub_blocks_per_stage() - 1. */
-
- void set_admissible_state( Index stage , Index sub_block_index = 0 );
-
-/*--------------------------------------------------------------------------*/
 
  /// updates the sub-Block at the given stage for the given scenario
  /** This function updates the sub-Block whose index is \p sub_block_index at
@@ -376,7 +268,8 @@ public:
   *        stage. This must be an integer between 0 and
   *        get_num_sub_blocks_per_stage() - 1. */
 
- void set_scenario( Index scenario_id , Index stage ,
+ void set_scenario( Index scenario_id ,
+                    Index stage ,
                     Index sub_block_index = 0 ) {
   auto sub_scenario_begin = scenario_set.sub_scenario_begin( scenario_id ,
                                                              stage );
@@ -392,7 +285,7 @@ public:
   }
  }
 
-/**@} ----------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
 

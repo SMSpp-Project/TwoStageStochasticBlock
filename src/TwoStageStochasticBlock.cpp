@@ -86,53 +86,7 @@ StochasticBlock * TwoStageStochasticBlock::get_sub_Block
 /*----- METHODS DESCRIBING THE BEHAVIOR OF AN TwoStageStochasticBlock ------*/
 /*--------------------------------------------------------------------------*/
 
-double TwoStageStochasticBlock::get_future_cost( Index stage ,
-                                                 Index sub_block_index ) const
-{
- if( stage >= get_number_stages() )
-  throw( std::invalid_argument(
-   "TwoStageStochasticBlock::get_future_cost: invalid "
-   "stage index: " + std::to_string( stage ) ) );
-}
 
-/*--------------------------------------------------------------------------*/
-
-void TwoStageStochasticBlock::set_state(
- const Eigen::ArrayXd & values , Index stage ,
- Index sub_block_index )
-{
- assert( stage < get_number_stages() );
- assert( sub_block_index < get_num_sub_blocks_per_stage() );
-}
-
-/*--------------------------------------------------------------------------*/
-
-void TwoStageStochasticBlock::set_state(
- const std::vector< double > & values , Index stage ,
- Index sub_block_index )
-{
- assert( stage < get_number_stages() );
- assert( sub_block_index < get_num_sub_blocks_per_stage() );
-}
-
-/*--------------------------------------------------------------------------*/
-
-std::vector< double > TwoStageStochasticBlock::get_state(
- Index stage ,
- Index sub_block_index ) const
-{
- assert( stage < get_number_stages() );
- assert( sub_block_index < get_num_sub_blocks_per_stage() );
-}
-
-/*--------------------------------------------------------------------------*/
-
-void TwoStageStochasticBlock::set_admissible_state(
- Index stage , Index sub_block_index )
-{
- assert( stage < get_number_stages() );
- assert( sub_block_index < get_num_sub_blocks_per_stage() );
-}
 
 /*--------------------------------------------------------------------------*/
 /*------- METHODS FOR PRINTING & SAVING THE TwoStageStochasticBlock --------*/
@@ -155,20 +109,16 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
  Block::serialize( group );
 
  // type
-
  group.putAtt( "type" , "TwoStageStochasticBlock" );
 
  // NumberStages
-
  const auto number_stages = get_number_stages();
  auto NumberStages_dim = group.addDim( "NumberStages" , number_stages );
 
  // NumSubBlocksPerStage
-
  group.addDim( "NumSubBlocksPerStage" , num_sub_blocks_per_stage );
 
  // StochasticBlock_i
-
  for( Index i = 0 ; i < number_stages ; ++i ) {
   auto sub_group = group.addGroup( "StochasticBlock_" + std::to_string( i ) );
   get_sub_Block( i )->serialize( sub_group );
