@@ -22,7 +22,7 @@
 cmake_minimum_required(VERSION 3.19)
 cmake_policy(VERSION 3.12)
 project(TwoStageStochasticBlock
-        VERSION 0.5.2
+        VERSION 0.1.0
         DESCRIPTION "SMS++ TwoStageStochasticBlock module"
         HOMEPAGE_URL https://gitlab.com/smspp/twostagestochasticblock
         LANGUAGES C CXX)
@@ -55,10 +55,6 @@ if (NOT hasParent)
     find_package(StochasticBlock REQUIRED)
 endif ()
 
-find_package(OpenMP)
-find_package(Boost COMPONENTS mpi)
-find_package(MPI)
-
 # ----- Configuration header ------------------------------------------------ #
 # This will generate a *Config.h header in the build directory.
 configure_file(cmake/${modName}Config.h.in ${modName}Config.h)
@@ -75,8 +71,7 @@ target_compile_features(${modName} PUBLIC cxx_std_17)
 # INTERFACE can be used for sources that should not be added to this library
 # but should be added to anything that links to it.
 # Note: do not GLOB files here.
-target_sources(${modName} PRIVATE
-               src/TwoStageStochasticBlock.cpp)
+target_sources(${modName} PRIVATE src/TwoStageStochasticBlock.cpp)
 
 # When using target_include_directories(), PUBLIC means that any targets
 # that link to this target also need that include directory.
@@ -101,15 +96,6 @@ target_include_directories(
 target_link_libraries(${modName} PUBLIC
                       ${modNamespace}::StochasticBlock)
 
-if (OPENMP_FOUND)
-    target_link_libraries(${modName} PUBLIC OpenMP::OpenMP_CXX)
-endif ()
-
-if (MPI_CXX_FOUND AND Boost_MPI_FOUND)
-    target_compile_definitions(${modName} PRIVATE USE_MPI)
-    target_link_libraries(${modName} PUBLIC Boost::mpi MPI::MPI_CXX)
-endif ()
-
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
 add_library(${modNamespace}::${modName} ALIAS ${modName})
@@ -133,7 +119,7 @@ install(TARGETS ${modName}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Install the headers
-install(DIRECTORY include
+install(DIRECTORY include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${modNamespace})
 
 # Install the auto-generated configuration header (see above).

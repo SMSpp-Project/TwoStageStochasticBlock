@@ -30,34 +30,26 @@
 
 # macros to be exported - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-TSSBkOBJ = $(TSSBkSDR)/obj/TwoStageStochasticBlock.o $(TSSBkSDR)/obj/TwoStageStochasticSolver.o
+TSSBkOBJ = $(TSSBkSDR)/obj/TwoStageStochasticBlock.o
 
 TSSBkINC = -I$(TSSBkSDR)/include
 
 TSSBkH   = $(TSSBkSDR)/include/TwoStageStochasticBlock.h \
 	$(TSSBkSDR)/include/ScenarioSet.h \
-	$(TSSBkSDR)/include/ScenarioSimulator.h \
-	$(TSSBkSDR)/include/TwoStageStochasticSolver.h
+	$(TSSBkSDR)/include/ScenarioSimulator.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
 	rm -f $(TSSBkOBJ) $(MILPBSDR)/*~
 
-# dependencies: every .o from its .C + every recursively included .h- - - - -
+# dependencies: every .o from its .cpp + every recursively included .h- - - -
 
 $(TSSBkSDR)/obj/TwoStageStochasticBlock.o: $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp \
 	$(TSSBkSDR)/include/TwoStageStochasticBlock.h \
 	$(TSSBkSDR)/include/ScenarioSet.h \
 	$(TSSBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp -o $@ $(TSSBkINC) \
-	$(StcBlkINC) $(SMS++INC) $(SW)
-
-$(TSSBkSDR)/obj/TwoStageStochasticSolver.o: $(TSSBkSDR)/src/TwoStageStochasticSolver.cpp \
-	$(TSSBkSDR)/include/TwoStageStochasticSolver.h $(TSSBkSDR)/include/TwoStageStochasticBlock.h \
-	$(TSSBkSDR)/include/ScenarioSet.h \
-	$(TSSBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticSolver.cpp -o $@ $(TSSBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
 
 ########################## End of makefile ###################################
