@@ -24,7 +24,9 @@
 /*--------------------------------------------------------------------------*/
 
 #include "Block.h"
+
 #include "Objective.h"
+
 #include "StochasticBlock.h"
 
 /*--------------------------------------------------------------------------*/
@@ -74,7 +76,7 @@ public:
  virtual ~TwoStageStochasticBlock() override;
 
 /*--------------------------------------------------------------------------*/
- /// generate the static constraint of the ECNetworkBlock
+ /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
 
@@ -101,66 +103,31 @@ public:
 
  void deserialize( const netCDF::NcGroup & group ) override {
 
-  // StochasticBlocks
+  SMSpp_di_unipi_it::deserialize_dim( group , "NumberScenarios" ,
+                                      f_number_scenarios , false );
 
-  Index number_stages = 1;
-  v_Block.reserve( number_stages );
+  /*if( number_scenarios != scenario_generator.size() )
+   throw( std::invalid_argument
+    ( "TwoStageStochasticBlock::deserialize: the expected `NumberScenarios` "
+      "dimension is " + std::to_string( scenario_generator.size() ) +
+      ", but " + std::to_string( number_scenarios ) + " was given." ) );*/
 
-  std::string sub_group_name = "StochasticBlock";
-  auto StochasticBlock_group = group.getGroup( sub_group_name );
+  // StochasticBlock
 
-  if( StochasticBlock_group.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
-                            "'StochasticBlock' not found." ) );
+  v_Block.reserve( f_number_scenarios );
 
-  auto type = StochasticBlock_group.getAtt( "type" );
-  if( type.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                            "'type' of '" + sub_group_name +
-                            "' must be present." ) );
+  for( Index i = 0 ; i < f_number_scenarios; ++i )
+   v_Block.push_back( deserialize_sub_Block( group ) );
 
-  std::string type_name;
-  type.getValues( type_name );
-  if( type_name != "StochasticBlock" )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                            "'type' of '" + sub_group_name + "' must contain "
-                            "'StochasticBlock'." ) );
+  // AbstractPath to map here-and-now variables
 
-  auto StochasticBlock_block = new_Block( StochasticBlock_group , this );
-  if( ! StochasticBlock_block )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
-                            "'" + sub_group_name + "has an invalid or "
-                            "incomplete description." ) );
+  auto path_group = group.getGroup( "AbstractPath" );
 
-  auto Block_group = StochasticBlock_group.getGroup( "Block" );
-
-  if( Block_group.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
-                            "'Block' was not provided in '" +
-                            sub_group_name ) );
-
-  auto Block_block = new_Block( Block_group, this );
-  if( ! Block_block )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: the "
-                            "'Block' sub-group of the 'StochasticBlock' group"
-                            "has an invalid or incomplete description." ) );
-
-  static_cast< StochasticBlock * >( StochasticBlock_block )->
-   set_inner_block( Block_block );
-
-  Index num_data_mappings;
-  if( ::SMSpp_di_unipi_it::deserialize_dim( StochasticBlock_group ,
-                                            "NumberDataMappings" ,
-                                            num_data_mappings , true ) ) {
-   std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
-   data_mappings.reserve( num_data_mappings );
-   SimpleDataMappingBase::deserialize
-    ( group , data_mappings , static_cast< StochasticBlock *>(
-     StochasticBlock_block )->get_inner_block() );
-
-   static_cast< StochasticBlock * >( StochasticBlock_block )->
-    set_data_mappings( std::move( data_mappings ) );
-  }
+  if( ! path_group.isNull() )
+   AbstractPath::vector_deserialize( path_group , v_paths_to_vars );
+  else
+   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
+                                 "group 'AbstractPath' was not found." ) );
 
   // Scenarios
 
@@ -203,13 +170,21 @@ public:
   * @return The sub-Block of this TwoStageStochasticBlock associated with the
   *         given \p stage and having index \p sub_block_index.
   */
- virtual StochasticBlock * get_sub_Block() const;
+ virtual StochasticBlock * get_sub_Block( Index scenario ) const;
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the number of scenarios
+ /** This function returns the number of scenarios. */
+ Index get_number_scenarios( void ) const {
+  return( f_number_scenarios );
+ }
 
 /*--------------------------------------------------------------------------*/
 
  /// returns the set of scenarios
  /** This function returns the set of scenarios. */
- /* const ScenarioGenerator & get_scenario_generator() const {
+ /* const ScenarioGenerator & get_scenario_generator( void ) const {
   return( scenario_generator );
  } */
 
@@ -225,7 +200,7 @@ public:
   *         TwoStageStochasticBlock if there is one. Otherwise, it returns
   *         Objective::eUndef. */
 
- int get_objective_sense() const override;
+ int get_objective_sense( void ) const override;
 
 /*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
@@ -234,36 +209,6 @@ public:
  *  @{ */
 
  void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
-
-/*--------------------------------------------------------------------------*/
-/*----- METHODS DESCRIBING THE BEHAVIOR OF AN TwoStageStochasticBlock ------*/
-/*--------------------------------------------------------------------------*/
-/** @name Methods describing the behavior of an TwoStageStochasticBlock
- * @{ */
-
- /// updates the sub-Block at the given stage for the given scenario
- /** This function updates the sub-Block whose index is \p sub_block_index at
-  * the given \p stage for the given \p scenario.
-  *
-  * @param scenario_id The id of the scenario that must be set.
-  */
-
- void set_scenario( Index scenario_id ,
-                    Index stage ,
-                    Index sub_block_index = 0 ) {
-  /* auto sub_scenario_begin = scenario_set.sub_scenario_begin( scenario_id ,
-                                                             stage );
-
-  try {
-   get_sub_Block( stage , sub_block_index )->set_data( sub_scenario_begin );
-  }
-  catch( const std::exception & e ) {
-   std::cout << "TwoStageStochasticBlock::set_scenario: exception while "
-                "setting scenario " << scenario_id << " of stage " << stage
-             << ".\n" << e.what() << std::endl;
-   std::exit( EXIT_FAILURE );
-  } */
- }
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
@@ -279,12 +224,20 @@ protected:
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
 /*--------------------------------------------------------------------------*/
 
- /// The scenario generator
+/*---------------------------------- data ----------------------------------*/
+
+ Index f_number_scenarios{};
+ ///< The number of scenarios
+
  // ScenarioGenerator scenario_generator;
+ ///< The scenario generator
+
+ std::vector< std::unique_ptr< AbstractPath > > v_paths_to_vars;
+ ///< The AbstractPath to the affected here-and-now ColVariable
 
 /*------------------------------- constraints ------------------------------*/
 
- /// the here-and-now equality constraints
+ ///< the here-and-now equality constraints
  boost::multi_array< FRowConstraint , 2 > here_and_now_const;
 
 /*--------------------------------------------------------------------------*/
@@ -302,6 +255,76 @@ private:
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ /// deserializes the i-th sub-Block out of the given group
+ /** This auxiliary function deserializes the \p i-th sub-Block out of the
+  * given \p group.
+  *
+  * @param group The netCDF::NcGroup containing the description of the
+  *        sub-Block.
+  *
+  * @param i The index of the sub-Block to be deserialized.
+  *
+  * @return A pointer to the Block that was deserialized.
+  */
+ Block * deserialize_sub_Block( const netCDF::NcGroup & group ) {
+  std::string sub_group_name = "StochasticBlock";
+  auto StochasticBlock_group = group.getGroup( sub_group_name );
+
+  if( StochasticBlock_group.isNull() )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
+                            "'StochasticBlock' not found." ) );
+
+  auto type = StochasticBlock_group.getAtt( "type" );
+  if( type.isNull() )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
+                            "'type' of '" + sub_group_name +
+                            "' must be present." ) );
+
+  std::string type_name;
+  type.getValues( type_name );
+  if( type_name != "StochasticBlock" )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
+                            "'type' of '" + sub_group_name + "' must contain "
+                                                             "'StochasticBlock'." ) );
+
+  auto StochasticBlock_block = new_Block( StochasticBlock_group , this );
+  if( ! StochasticBlock_block )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
+                            "'" + sub_group_name + "' has an invalid or "
+                                                   "incomplete description." ) );
+
+  auto Block_group = StochasticBlock_group.getGroup( "Block" );
+
+  if( Block_group.isNull() )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
+                            "'Block' was not provided in '" + sub_group_name ) );
+
+  auto Block_block = new_Block( Block_group, this );
+  if( ! Block_block )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: the "
+                            "'Block' sub-group of the 'StochasticBlock' group"
+                            "has an invalid or incomplete description." ) );
+
+  static_cast< StochasticBlock * >( StochasticBlock_block )->
+   set_inner_block( Block_block );
+
+  /*Index num_data_mappings;
+  if( ::SMSpp_di_unipi_it::deserialize_dim( StochasticBlock_group ,
+                                            "NumberDataMappings" ,
+                                            num_data_mappings , true ) ) {
+   std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
+   data_mappings.reserve( num_data_mappings );
+   SimpleDataMappingBase::deserialize
+    ( group , data_mappings , static_cast< StochasticBlock *>(
+     StochasticBlock_block )->get_inner_block() );
+
+   static_cast< StochasticBlock * >( StochasticBlock_block )->
+    set_data_mappings( std::move( data_mappings ) );
+  }*/
+
+  return( StochasticBlock_block );
+ }
 
 };   // end( class TwoStageStochasticBlock )
 

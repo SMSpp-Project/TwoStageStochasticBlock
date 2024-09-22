@@ -17,9 +17,6 @@
 get_filename_component(@modName@_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 include(CMakeFindDependencyMacro)
 
-# ----- Settings ------------------------------------------------------------ #
-set(TwoStageStochasticBlock_USE_MPI @TwoStageStochasticBlock_USE_MPI@)
-
 # ----- Requirements -------------------------------------------------------- #
 find_dependency(StochasticBlock)
 
