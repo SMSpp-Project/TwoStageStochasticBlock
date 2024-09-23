@@ -36,7 +36,8 @@ SMSpp_insert_in_factory_cpp_1( TwoStageStochasticBlock );
 
 TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 
- delete v_Block.front();
+ for( auto & block : v_Block )
+  delete block;
  v_Block.clear();
 
  Constraint::clear( here_and_now_const );
