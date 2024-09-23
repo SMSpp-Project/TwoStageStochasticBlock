@@ -37,7 +37,7 @@ SMSpp_insert_in_factory_cpp_1( TwoStageStochasticBlock );
 TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 
  for( auto & block : v_Block )
-  delete block;
+  delete( block );
  v_Block.clear();
 
  Constraint::clear( here_and_now_const );
@@ -70,7 +70,7 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
  }
 
  // Precompute variables for each variable t and scenario i
- std::vector< std::vector< ColVariable* > > here_and_now_vars( v_paths_to_vars.size() );
+ std::vector< std::vector< ColVariable * > > here_and_now_vars( v_paths_to_vars.size() );
  for( int t = 0 ; t < v_paths_to_vars.size() ; ++t ) {
   here_and_now_vars[ t ].resize( get_number_scenarios() );
   for( int i = 0 ; i < get_number_scenarios() ; ++i ) {
