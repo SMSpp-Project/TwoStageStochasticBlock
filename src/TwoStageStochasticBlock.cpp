@@ -73,10 +73,9 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
  std::vector< std::vector< ColVariable * > > here_and_now_vars( v_paths_to_vars.size() );
  for( int t = 0 ; t < v_paths_to_vars.size() ; ++t ) {
   here_and_now_vars[ t ].resize( get_number_scenarios() );
-  for( int i = 0 ; i < get_number_scenarios() ; ++i ) {
+  for( int i = 0 ; i < get_number_scenarios() ; ++i )
    here_and_now_vars[ t ][ i ] = v_paths_to_vars[ t ]->
                          get_element< ColVariable >( inner_blocks[ i ] );
-  }
  }
 
  if( gen_seq_anchr_cnstrs ) { // sequential constraints

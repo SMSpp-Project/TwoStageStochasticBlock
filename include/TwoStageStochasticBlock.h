@@ -23,6 +23,8 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
+#include <ScenarioGenerator.h>
+
 #include "Block.h"
 
 #include "Objective.h"
@@ -103,21 +105,48 @@ public:
 
  void deserialize( const netCDF::NcGroup & group ) override {
 
-  SMSpp_di_unipi_it::deserialize_dim( group , "NumberScenarios" ,
-                                      f_number_scenarios , false );
+  deserialize_dim( group , "NumberScenarios" , f_number_scenarios , false );
 
-  /*if( number_scenarios != scenario_generator.size() )
-   throw( std::invalid_argument
-    ( "TwoStageStochasticBlock::deserialize: the expected `NumberScenarios` "
-      "dimension is " + std::to_string( scenario_generator.size() ) +
-      ", but " + std::to_string( number_scenarios ) + " was given." ) );*/
+  // ScenarioGenerator
+
+  /*auto scenario_group = group.getGroup( "ScenarioGenerator" );
+  if( ! scenario_group.isNull() )
+   scenario_gen = ScenarioGenerator::new_ScenarioGenerator( scenario_group );
+  else
+   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
+                                 "'ScenarioGenerator' group not found.") );
+
+  scenario_gen->init_representative_pool( f_number_scenarios );*/
 
   // StochasticBlock
 
   v_Block.reserve( f_number_scenarios );
 
-  for( Index i = 0 ; i < f_number_scenarios; ++i )
-   v_Block.push_back( deserialize_sub_Block( group ) );
+  for( Index i = 0 ; i < f_number_scenarios; ++i ) {
+
+   auto * sb = deserialize_sub_Block( group );
+
+   if( auto stochastic_block = dynamic_cast< StochasticBlock * >( sb ) ) {
+
+    // Set the scenario for the current sub-Block
+    // stochastic_block->set_scenario( scenario_gen->get_current_scenario() );
+
+    // Scale the objective according to the current scenario probability
+    if( auto inner_block = stochastic_block->get_inner_block() ) {
+     // inner_block->scale( scenario_gen->get_current_scenario_probability() );
+    }
+   } else
+    throw std::logic_error(
+     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
+
+   // Add the sub-Block to the vector of blocks
+   v_Block.push_back( sb );
+
+   // Move to the next scenario
+   /*if( ! scenario_gen->next_scenario() )
+    throw( std::out_of_range( "TwoStageStochasticBlock::deserialize: "
+                              "unable to move to the next scenario." ) );*/
+  }
 
   // AbstractPath to map here-and-now variables
 
@@ -128,10 +157,6 @@ public:
   else
    throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
                                  "group 'AbstractPath' was not found." ) );
-
-  // Scenarios
-
-  // scenario_generator.deserialize( group );
 
   Block::deserialize( group );
  }
@@ -184,9 +209,9 @@ public:
 
  /// returns the set of scenarios
  /** This function returns the set of scenarios. */
- /* const ScenarioGenerator & get_scenario_generator( void ) const {
-  return( scenario_generator );
- } */
+ const ScenarioGenerator * get_scenario_generator( void ) const {
+  return( scenario_gen );
+ }
 
 /*--------------------------------------------------------------------------*/
 
@@ -229,7 +254,7 @@ protected:
  Index f_number_scenarios{};
  ///< The number of scenarios
 
- // ScenarioGenerator scenario_generator;
+ ScenarioGenerator * scenario_gen;
  ///< The scenario generator
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_vars;
