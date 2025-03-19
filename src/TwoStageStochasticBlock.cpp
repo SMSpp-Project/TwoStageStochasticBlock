@@ -36,11 +36,11 @@ SMSpp_insert_in_factory_cpp_1( TwoStageStochasticBlock );
 
 TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 
+ Constraint::clear( here_and_now_const );
+
  for( auto & block : v_Block )
   delete( block );
  v_Block.clear();
-
- Constraint::clear( here_and_now_const );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -49,7 +49,7 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 
 void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stcc )
 {
- if( v_paths_to_vars.empty() )
+ if( v_paths_to_static_vars.empty() )
   return; // no Variable needs to be retrieved
 
  bool gen_seq_anchr_cnstrs = true;
@@ -57,8 +57,6 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
   stcc = f_BlockConfig->f_static_constraints_Configuration;
  if( auto sci = dynamic_cast< SimpleConfiguration< int > * >( stcc ) )
   gen_seq_anchr_cnstrs = sci->f_value;
-
- LinearFunction::v_coeff_pair vars;
 
  // Precompute inner_blocks for all scenarios
  std::vector< Block * > inner_blocks( get_number_scenarios() );
@@ -69,66 +67,78 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
   inner_blocks[ i ]->generate_abstract_variables();
  }
 
- // Precompute variables for each variable t and scenario i
- std::vector< std::vector< ColVariable * > > here_and_now_vars( v_paths_to_vars.size() );
- for( int t = 0 ; t < v_paths_to_vars.size() ; ++t ) {
-  here_and_now_vars[ t ].resize( get_number_scenarios() );
-  for( int i = 0 ; i < get_number_scenarios() ; ++i )
-   here_and_now_vars[ t ][ i ] = v_paths_to_vars[ t ]->
-                         get_element< ColVariable >( inner_blocks[ i ] );
+ // Precompute variables for each scenario t, path i, and variable j
+ boost::multi_array< std::vector< ColVariable * > , 2 > here_and_now_vars;
+ here_and_now_vars.resize(
+  boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
+ for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
+  for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
+   auto number_variables = v_paths_to_static_vars[ i ]->
+    get_number_elements< ColVariable >( inner_blocks[ t ] );
+   here_and_now_vars[ t ][ i ].resize( number_variables );
+   // pointer to the first ColVariable of a contiguous structure,
+   // i.e., a std::vector or boost::multi_array (since *static* vars)
+   auto * elem = v_paths_to_static_vars[ i ]->
+    get_element< ColVariable >( inner_blocks[ t ] );
+   for( int j = 0 ; j < number_variables ; j++ )
+    here_and_now_vars[ t ][ i ][ j ] = elem + j;
+  }
  }
 
- if( gen_seq_anchr_cnstrs ) { // sequential constraints
+ here_and_now_const.resize(
+  boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
 
-  here_and_now_const.resize(
-   boost::multi_array< FRowConstraint , 2 >::extent_gen()
-   [ v_paths_to_vars.size() ][ get_number_scenarios() - 1 ] );
+ LinearFunction::v_coeff_pair vars;
+
+ if( gen_seq_anchr_cnstrs ) { // sequential constraints
 
   // loop through each scenario, except the last one
   // scenario_0 = scenario_1
   // scenario_1 = scenario_2
   // . . .
   // scenario_i-1 = scenario_i
-  for( int i = 0 ; i < get_number_scenarios() - 1 ; ++i ) {
+  for( int t = 0 ; t < get_number_scenarios() - 1 ; ++t ) {
 
    // loop through each here-and-now variable
-   for( int t = 0 ; t < v_paths_to_vars.size() ; ++t ) {
+   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
 
-    // create a constraint that ensures the t-th variable at the i-th scenario...
-    vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ] , 1.0 ) );
-    // ... is equal to the same t-th variable at (i+1)-th scenario
-    vars.push_back( std::make_pair( here_and_now_vars[ t ][ i + 1 ] , -1.0 ) );
+    here_and_now_const[ t ][ i ].resize( here_and_now_vars[ t ][ i ].size() );
+    for( int j = 0 ; j < here_and_now_vars[ t ][ i ].size() ; j++ ) {
+     // create a constraint that ensures the j-th variable at the t-th scenario...
+     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] , 1.0 ) );
+     // ... is equal to the same j-th variable at (t+1)-th scenario
+     vars.push_back( std::make_pair( here_and_now_vars[ t + 1 ][ i ][ j ] , -1.0 ) );
 
-    here_and_now_const[ t ][ i ].set_both( 0.0 );
-    here_and_now_const[ t ][ i ].set_function(
-     new LinearFunction( std::move( vars ) ) );
+     here_and_now_const[ t ][ i ][ j ].set_both( 0.0 );
+     here_and_now_const[ t ][ i ][ j ].set_function(
+      new LinearFunction( std::move( vars ) ) );
+    }
    }
   }
 
  } else { // anchor constraints
-
-  here_and_now_const.resize(
-   boost::multi_array< FRowConstraint , 2 >::extent_gen()
-   [ v_paths_to_vars.size() ][ get_number_scenarios() - 1 ] );
 
   // loop through each scenario, starting from the second one
   // scenario_0 = scenario_1
   // scenario_0 = scenario_2
   // . . .
   // scenario_0 = scenario_i
-  for( int i = 1 ; i < get_number_scenarios() ; ++i ) {
+  for( int t = 1 ; t < get_number_scenarios() ; ++t ) {
 
    // loop through each here-and-now variable
-   for( int t = 0 ; t < v_paths_to_vars.size() ; ++t ) {
+   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
 
-    // create a constraint that ensures the t-th variable at the first scenario...
-    vars.push_back( std::make_pair( here_and_now_vars[ t ][ 0 ] , 1.0 ) );
-    // ... is equal to the same t-th variable at i-th scenario
-    vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ] , -1.0 ) );
+    here_and_now_const[ t - 1 ][ i ].resize( here_and_now_vars[ t ][ i ].size() );
+    for( int j = 0 ; j < here_and_now_vars[ t ][ i ].size() ; j++ ) {
+     // create a constraint that ensures the j-th variable at the first scenario...
+     vars.push_back( std::make_pair( here_and_now_vars[ 0 ][ i ][ j ] , 1.0 ) );
+     // ... is equal to the same j-th variable at t-th scenario
+     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] , -1.0 ) );
 
-    here_and_now_const[ t ][ i - 1 ].set_both( 0.0 );
-    here_and_now_const[ t ][ i - 1 ].set_function(
-     new LinearFunction( std::move( vars ) ) );
+     here_and_now_const[ t - 1 ][ i ][ j ].set_both( 0.0 );
+     here_and_now_const[ t - 1 ][ i ][ j ].set_function(
+      new LinearFunction( std::move( vars ) ) );
+    }
    }
   }
  }

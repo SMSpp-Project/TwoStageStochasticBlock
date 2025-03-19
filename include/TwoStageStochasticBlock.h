@@ -148,15 +148,23 @@ public:
                               "unable to move to the next scenario." ) );*/
   }
 
-  // AbstractPath to map here-and-now variables
+  // AbstractPath(s) to map both here-and-now static and dynamic variables
 
-  auto path_group = group.getGroup( "AbstractPath" );
+  auto static_path_group = group.getGroup( "StaticAbstractPath" );
 
-  if( ! path_group.isNull() )
-   AbstractPath::vector_deserialize( path_group , v_paths_to_vars );
+  if( ! static_path_group.isNull() )
+   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars );
   else
    throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
-                                 "group 'AbstractPath' was not found." ) );
+                                 "group 'StaticAbstractPath' was not found." ) );
+
+  auto dynamic_path_group = group.getGroup( "DynamicAbstractPath" );
+
+  if( ! dynamic_path_group.isNull() )
+   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
+                                 "cannot handle dynamic here-and-now variables "
+                                 "right now." ) );
+   // AbstractPath::vector_deserialize( dynamic_path_group , v_paths_to_dynamic_vars );
 
   Block::deserialize( group );
  }
@@ -257,13 +265,16 @@ protected:
  ScenarioGenerator * scenario_gen;
  ///< The scenario generator
 
- std::vector< std::unique_ptr< AbstractPath > > v_paths_to_vars;
- ///< The AbstractPath to the affected here-and-now ColVariable
+ std::vector< std::unique_ptr< AbstractPath > > v_paths_to_static_vars;
+ ///< The AbstractPath to the affected here-and-now static ColVariable
+
+ std::vector< std::unique_ptr< AbstractPath > > v_paths_to_dynamic_vars;
+ ///< The AbstractPath to the affected here-and-now static ColVariable
 
 /*------------------------------- constraints ------------------------------*/
 
  ///< the here-and-now equality constraints
- boost::multi_array< FRowConstraint , 2 > here_and_now_const;
+ boost::multi_array< std::vector< FRowConstraint > , 2 > here_and_now_const;
 
 /*--------------------------------------------------------------------------*/
 /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
@@ -341,7 +352,7 @@ private:
    std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
    data_mappings.reserve( num_data_mappings );
    SimpleDataMappingBase::deserialize
-    ( group , data_mappings , static_cast< StochasticBlock *>(
+    ( group , data_mappings , static_cast< StochasticBlock * >(
      StochasticBlock_block )->get_inner_block() );
 
    static_cast< StochasticBlock * >( StochasticBlock_block )->
