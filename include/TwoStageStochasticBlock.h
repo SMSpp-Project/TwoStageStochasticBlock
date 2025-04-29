@@ -44,7 +44,7 @@ namespace SMSpp_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /*--------------------------- GENERAL NOTES --------------------------------*/
 /*--------------------------------------------------------------------------*/
-/// TwoStageStochasticBlock, representing a two-stage stochastic programming problem
+/// TwoStageStochasticBlock, representing a two-stage stochastic problem
 /** The TwoStageStochasticBlock is a class that derives from Block and
  * represents a two-stage stochastic programming problem. */
 
@@ -321,14 +321,14 @@ private:
   type.getValues( type_name );
   if( type_name != "StochasticBlock" )
    throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                            "'type' of '" + sub_group_name + "' must contain "
-                                                             "'StochasticBlock'." ) );
+                            "'type' of '" + sub_group_name +
+                            "' must contain 'StochasticBlock'." ) );
 
   auto StochasticBlock_block = new_Block( StochasticBlock_group , this );
   if( ! StochasticBlock_block )
    throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
-                            "'" + sub_group_name + "' has an invalid or "
-                                                   "incomplete description." ) );
+                            "'" + sub_group_name +
+                            "' has an invalid or incomplete description." ) );
 
   auto Block_group = StochasticBlock_group.getGroup( "Block" );
 
