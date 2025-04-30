@@ -78,9 +78,19 @@ public:
  virtual ~TwoStageStochasticBlock() override;
 
 /*--------------------------------------------------------------------------*/
+ /// generates the static variables of TwoStageStochasticBlock
+
+ void generate_abstract_variables( Configuration * stvv = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
  /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+ /// generate the objective of the TwoStageStochasticBlock
+
+ void generate_objective( Configuration * objc = nullptr ) override;
 
 /*--------------------------------------------------------------------------*/
  /// loads TwoStageStochasticBlock out of an istream - not implemented yet
@@ -253,6 +263,24 @@ protected:
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
+ /// states that the Variable have been generated
+ void set_variables_generated( void ) { AR |= HasVar; }
+
+ /// states that the Constraint have been generated
+ void set_constraints_generated( void ) { AR |= HasCst; }
+
+ /// states that the Objective has been generated
+ void set_objective_generated( void ) { AR |= HasObj; }
+
+ /// indicates whether the Variable have been generated
+ bool variables_generated( void ) const { return( AR & HasVar ); }
+
+ /// indicates whether the Constraint have been generated
+ bool constraints_generated( void ) const { return( AR & HasCst ); }
+
+ /// indicates whether the Objective has been generated
+ bool objective_generated( void ) const { return( AR & HasObj ); }
+
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PROTECTED FIELDS  ---------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -285,6 +313,18 @@ private:
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
 /*--------------------------------------------------------------------------*/
+
+ ///< bit-wise coded: what abstract is there
+ unsigned char AR{};
+
+ static constexpr unsigned char HasVar = 1;
+ ///< first bit of AR == 1 if the Variables have been constructed
+
+ static constexpr unsigned char HasCst = 2;
+ ///< second bit of AR == 1 if the Constraints have been constructed
+
+ static constexpr unsigned char HasObj = 4;
+ ///< third bit of AR == 1 if the Objective has been constructed
 
   SMSpp_insert_in_factory_h;
 

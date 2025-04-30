@@ -47,39 +47,46 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+void TwoStageStochasticBlock::generate_abstract_variables( Configuration * stvv )
+{
+ if( variables_generated() )  // variables have already been generated
+  return;                     // nothing to do
+
+ for( int i = 0 ; i < get_number_scenarios() ; ++i )
+  get_sub_Block( i )->get_inner_block()->generate_abstract_variables( stvv );
+
+ set_variables_generated();
+} // end( TwoStageStochasticBlock::generate_abstract_variables )
+
+/*--------------------------------------------------------------------------*/
+
 void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stcc )
 {
- if( v_paths_to_static_vars.empty() )
-  return; // no Variable needs to be retrieved
+ if( constraints_generated() )  // constraints have already been generated
+  return;                       // nothing to do
 
- bool gen_seq_anchr_cnstrs = true;
+ bool gen_seq_anchr_cnstrs = true; // sequential by default
  if( ( ! stcc ) && f_BlockConfig )
   stcc = f_BlockConfig->f_static_constraints_Configuration;
  if( auto sci = dynamic_cast< SimpleConfiguration< int > * >( stcc ) )
   gen_seq_anchr_cnstrs = sci->f_value;
 
- // Precompute inner_blocks for all scenarios
- std::vector< Block * > inner_blocks( get_number_scenarios() );
- for( int i = 0 ; i < get_number_scenarios() ; ++i ) {
-  inner_blocks[ i ] = get_sub_Block( i )->get_inner_block();
-  assert( inner_blocks[ i ] );
-  // ensure here and now variables are generated
-  inner_blocks[ i ]->generate_abstract_variables();
- }
-
  // Precompute variables for each scenario t, path i, and variable j
  boost::multi_array< std::vector< ColVariable * > , 2 > here_and_now_vars;
  here_and_now_vars.resize(
   boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
+
  for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
+  auto block = get_sub_Block( t )->get_inner_block();
+  block->generate_abstract_constraints( stcc );
   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
    auto number_variables = v_paths_to_static_vars[ i ]->
-    get_number_elements< ColVariable >( inner_blocks[ t ] );
+    get_number_elements< ColVariable >( block );
    here_and_now_vars[ t ][ i ].resize( number_variables );
    // pointer to the first ColVariable of a contiguous structure,
    // i.e., a std::vector or boost::multi_array (since *static* vars)
    auto * elem = v_paths_to_static_vars[ i ]->
-    get_element< ColVariable >( inner_blocks[ t ] );
+    get_element< ColVariable >( block );
    for( int j = 0 ; j < number_variables ; j++ )
     here_and_now_vars[ t ][ i ][ j ] = elem + j;
   }
@@ -145,7 +152,21 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
 
  add_static_constraint( here_and_now_const , "Here_and_Now_Const" );
 
+ set_constraints_generated();
 } // end( TwoStageStochasticBlock::generate_abstract_constraints )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlock::generate_objective( Configuration * objc )
+{
+ if( objective_generated() )  // Objective has already been generated
+  return;                     // nothing to do
+
+ for( int i = 0 ; i < get_number_scenarios() ; ++i )
+  get_sub_Block( i )->get_inner_block()->generate_objective( objc );
+
+ set_objective_generated();
+} // end( TwoStageStochasticBlock::generate_objective )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
