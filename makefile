@@ -34,9 +34,7 @@ TSSBkOBJ = $(TSSBkSDR)/obj/TwoStageStochasticBlock.o
 
 TSSBkINC = -I$(TSSBkSDR)/include
 
-TSSBkH   = $(TSSBkSDR)/include/TwoStageStochasticBlock.h \
-	$(TSSBkSDR)/include/ScenarioSet.h \
-	$(TSSBkSDR)/include/ScenarioSimulator.h
+TSSBkH   = $(TSSBkSDR)/include/TwoStageStochasticBlock.h
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -46,9 +44,7 @@ clean::
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 
 $(TSSBkSDR)/obj/TwoStageStochasticBlock.o: $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp \
-	$(TSSBkSDR)/include/TwoStageStochasticBlock.h \
-	$(TSSBkSDR)/include/ScenarioSet.h \
-	$(TSSBkSDR)/include/ScenarioSimulator.h $(StcBlkH) $(SMS++OBJ)
+	$(TSSBkSDR)/include/TwoStageStochasticBlock.h $(StcBlkH) $(SMS++OBJ)
 	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp -o $@ $(TSSBkINC) \
 	$(StcBlkINC) $(SMS++INC) $(SW)
 

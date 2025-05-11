@@ -47,19 +47,6 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::generate_abstract_variables( Configuration * stvv )
-{
- if( variables_generated() )  // variables have already been generated
-  return;                     // nothing to do
-
- for( int i = 0 ; i < get_number_scenarios() ; ++i )
-  get_sub_Block( i )->get_inner_block()->generate_abstract_variables( stvv );
-
- set_variables_generated();
-} // end( TwoStageStochasticBlock::generate_abstract_variables )
-
-/*--------------------------------------------------------------------------*/
-
 void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stcc )
 {
  if( constraints_generated() )  // constraints have already been generated
@@ -77,7 +64,7 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
   boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
 
  for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
-  auto block = get_sub_Block( t )->get_inner_block();
+  auto block = get_sub_Block( t );
   block->generate_abstract_constraints( stcc );
   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
    auto number_variables = v_paths_to_static_vars[ i ]->
@@ -154,19 +141,6 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
 
  set_constraints_generated();
 } // end( TwoStageStochasticBlock::generate_abstract_constraints )
-
-/*--------------------------------------------------------------------------*/
-
-void TwoStageStochasticBlock::generate_objective( Configuration * objc )
-{
- if( objective_generated() )  // Objective has already been generated
-  return;                     // nothing to do
-
- for( int i = 0 ; i < get_number_scenarios() ; ++i )
-  get_sub_Block( i )->get_inner_block()->generate_objective( objc );
-
- set_objective_generated();
-} // end( TwoStageStochasticBlock::generate_objective )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/

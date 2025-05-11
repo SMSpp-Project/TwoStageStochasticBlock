@@ -63,7 +63,7 @@ public:
  *  @{ */
 
  /// constructor
- /** Constructs an TwoStageStochasticBlock with the given \p father Block.
+ /** Constructs a TwoStageStochasticBlock with the given \p father Block.
   * The input parameter has a default value (\c nullptr), so that this can be
   * used as the void constructor.
   *
@@ -78,19 +78,9 @@ public:
  virtual ~TwoStageStochasticBlock() override;
 
 /*--------------------------------------------------------------------------*/
- /// generates the static variables of TwoStageStochasticBlock
-
- void generate_abstract_variables( Configuration * stvv = nullptr ) override;
-
-/*--------------------------------------------------------------------------*/
  /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
-
-/*--------------------------------------------------------------------------*/
- /// generate the objective of the TwoStageStochasticBlock
-
- void generate_objective( Configuration * objc = nullptr ) override;
 
 /*--------------------------------------------------------------------------*/
  /// loads TwoStageStochasticBlock out of an istream - not implemented yet
@@ -101,7 +91,7 @@ public:
   }
 
 /*--------------------------------------------------------------------------*/
- /// de-serialize an TwoStageStochasticBlock out of netCDF::NcGroup
+ /// de-serialize a TwoStageStochasticBlock out of netCDF::NcGroup
  /** The method takes a netCDF::NcGroup supposedly containing all the
   * information required to de-serialize the TwoStageStochasticBlock. Besides
   * the mandatory "type" attribute of any :Block, the group must contain the
@@ -141,16 +131,15 @@ public:
     // Set the scenario for the current sub-Block
     // stochastic_block->set_scenario( scenario_gen->get_current_scenario() );
 
-    // Scale the objective according to the current scenario probability
     if( auto ib = stochastic_block->get_inner_block() ) {
+     // Scale the objective according to the current scenario probability
      // ib->scale( scenario_gen->get_current_scenario_probability() );
+     // Add the sub-Block to the vector of blocks
+     v_Block.push_back( ib );
     }
    } else
     throw std::logic_error(
      "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
-
-   // Add the sub-Block to the vector of blocks
-   v_Block.push_back( sb );
 
    // Move to the next scenario
    /*if( ! scenario_gen->next_scenario() )
@@ -188,8 +177,8 @@ public:
  void print( std::ostream & output , char vlvl = 0 ) const override;
 
 /*--------------------------------------------------------------------------*/
- /// serialize an TwoStageStochasticBlock into a netCDF::NcGroup
- /** Serialize an TwoStageStochasticBlock into a netCDF::NcGroup with the format
+ /// serialize a TwoStageStochasticBlock into a netCDF::NcGroup
+ /** Serialize a TwoStageStochasticBlock into a netCDF::NcGroup with the format
   * explained in the comments of the deserialize() function.
   *
   * @param group The NcGroup in which this TwoStageStochasticBlock will be
