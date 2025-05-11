@@ -93,7 +93,7 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
  }
 
  here_and_now_const.resize(
-  boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
+  boost::extents[ get_number_scenarios() - 1 ][ v_paths_to_static_vars.size() ] );
 
  LinearFunction::v_coeff_pair vars;
 
