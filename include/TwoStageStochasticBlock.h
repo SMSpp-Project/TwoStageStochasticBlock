@@ -142,8 +142,8 @@ public:
     // stochastic_block->set_scenario( scenario_gen->get_current_scenario() );
 
     // Scale the objective according to the current scenario probability
-    if( auto inner_block = stochastic_block->get_inner_block() ) {
-     // inner_block->scale( scenario_gen->get_current_scenario_probability() );
+    if( auto ib = stochastic_block->get_inner_block() ) {
+     // ib->scale( scenario_gen->get_current_scenario_probability() );
     }
    } else
     throw std::logic_error(
