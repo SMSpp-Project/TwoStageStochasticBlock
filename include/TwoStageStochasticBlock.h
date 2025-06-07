@@ -375,9 +375,8 @@ private:
    set_inner_block( Block_block );
 
   /*Index num_data_mappings;
-  if( ::SMSpp_di_unipi_it::deserialize_dim( StochasticBlock_group ,
-                                            "NumberDataMappings" ,
-                                            num_data_mappings , true ) ) {
+  if( deserialize_dim( StochasticBlock_group , "NumberDataMappings" ,
+                       num_data_mappings , true ) ) {
    std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
    data_mappings.reserve( num_data_mappings );
    SimpleDataMappingBase::deserialize
