@@ -11,9 +11,6 @@
 #                                                                             #
 #        $ cmake --build <build-path> --target install                        #
 #                                                                             #
-#    Note: this file tries to respect the principles of Modern CMake,         #
-#          keep it in mind when editing it.                                   #
-#                                                                             #
 #                                Donato Meoli                                 #
 #                         Dipartimento di Informatica                         #
 #                             Universita' di Pisa                             #
@@ -92,8 +89,7 @@ target_include_directories(
 # PUBLIC means they will be linked also to the targets that depend on this
 # library, INTERFACE means they will be linked only to the targets that depend
 # on this library.
-target_link_libraries(${modName} PUBLIC
-                      ${modNamespace}::StochasticBlock)
+target_link_libraries(${modName} PUBLIC ${modNamespace}::StochasticBlock)
 
 # This alias is defined so that executables in this same project can use
 # the library with this notation.
@@ -114,8 +110,9 @@ include(GNUInstallDirs)
 # Install the library
 install(TARGETS ${modName}
         EXPORT ${modName}Targets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+        RUNTIME DESTINATION ${CMAKE_RUNTIME_BINDIR} # .dll
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} # .so .dylib
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}) # .lib
 
 # Install the headers
 install(DIRECTORY include/
