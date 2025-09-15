@@ -19,8 +19,6 @@
 #include "TwoStageStochasticBlock.h"
 #include "DataMapping.h"
 #include <iostream>
-#include <cstdlib>  // for std::rand()
-#include <cstdio>   // for std::remove()
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/

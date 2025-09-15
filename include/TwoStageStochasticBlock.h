@@ -29,9 +29,6 @@
 
 #include "StochasticBlock.h"
 
-#include <chrono>   // For unique timestamp generation
-#include <cstdio>   // For std::remove (file deletion)
-
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -149,10 +146,10 @@ public:
   * - StaticAbstractPath: group with AbstractPaths to first-stage variables
   * - DynamicAbstractPath (optional): currently not supported
   *
-  * This method creates N copies of the inner block (one per scenario) using
-  * serialization/deserialization. The inner block is serialized once to a
-  * temporary netCDF file and then deserialized N times to create
-  * independent copies.
+  * This method creates N copies of the inner block (one per scenario) by
+  * deserializing directly from the Block group in the netCDF data. This
+  * avoids the need for temporary files and creates independent copies
+  * efficiently.
   *
   * After deserialization, scenario-specific data should be applied to each
   * block using the apply_scenario_data() method.
@@ -165,8 +162,19 @@ public:
 
   deserialize_dim( group , "NumberScenarios" , f_number_scenarios , false );
 
-  // StochasticBlock - deserialize it once
-  
+  // Get the StochasticBlock group which contains the inner Block definition
+  auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
+  if( StochasticBlock_group.isNull() )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
+                            "'StochasticBlock' not found." ) );
+
+  // Get the Block group that contains the inner block definition
+  auto Block_group = StochasticBlock_group.getGroup( "Block" );
+  if( Block_group.isNull() )
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
+                            "'Block' sub-group not found in 'StochasticBlock'." ) );
+
+  // Deserialize the StochasticBlock (with DataMappings)
   auto * sb = deserialize_sub_Block( group );
   stochastic_block = dynamic_cast< StochasticBlock * >( sb );
   
@@ -174,7 +182,7 @@ public:
    throw std::logic_error(
     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
   
-  // Get the inner block which will be used as the source for copies
+  // Get the inner block which will be used as the source for verification
   auto * inner_block_source = stochastic_block->get_inner_block();
   if( ! inner_block_source )
    throw std::logic_error(
@@ -182,23 +190,12 @@ public:
 
   v_Block.reserve( f_number_scenarios );
 
-  // Create N copies of the inner block using serialization/deserialization
-  // This approach works for all Blocks, not just those that implement get_R3_Block()
-  
-  // First, serialize the inner block once to a temporary file
-  // We use a temporary file with a unique name to hold the serialized data
-  std::string temp_filename = "/tmp/tss_inner_block_" + 
-                              std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + 
-                              ".nc";
-  netCDF::NcFile temp_file( temp_filename , netCDF::NcFile::replace );
-  auto temp_group = temp_file.addGroup( "InnerBlockTemplate" );
-  stochastic_block->serialize_inner_block( temp_group );
-  
-  // Now deserialize N times to create copies
+  // Create N copies of the inner block by deserializing directly from Block_group
+  // This avoids the need for a temporary file
   for( Index i = 0 ; i < f_number_scenarios; ++i ) {
    
    // Create a copy of the inner block through deserialization
-   Block * block_copy = Block::new_Block( temp_group , this );
+   Block * block_copy = Block::new_Block( Block_group , this );
    
    if( ! block_copy )
     throw std::logic_error(
@@ -211,10 +208,6 @@ public:
    
    v_Block.push_back( block_copy );
   }
-  
-  // Clean up the temporary file
-  temp_file.close();
-  std::remove( temp_filename.c_str() );
 
   // AbstractPath(s) to map both here-and-now static and dynamic variables
 
