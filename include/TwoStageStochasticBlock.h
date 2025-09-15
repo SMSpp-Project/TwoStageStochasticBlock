@@ -52,6 +52,9 @@ namespace SMSpp_di_unipi_it
  *   are the same across all scenarios
  * - Combining objectives from all scenarios (weighted by probabilities)
  * 
+ *   TODO: We need Objective::scale() to be implemented. Currently we only
+ *    consider the unweighted sum of the objectives of the subBlocks.
+ * 
  * The class uses serialization/deserialization to create copies of the inner
  * Block, which works for all Block types without requiring them to implement
  * any special copy methods. The inner Block is serialized once and then
