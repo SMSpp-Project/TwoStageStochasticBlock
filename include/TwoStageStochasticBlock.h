@@ -191,7 +191,6 @@ public:
   v_Block.reserve( f_number_scenarios );
 
   // Create N copies of the inner block by deserializing directly from Block_group
-  // This avoids the need for a temporary file
   for( Index i = 0 ; i < f_number_scenarios; ++i ) {
    
    // Create a copy of the inner block through deserialization
