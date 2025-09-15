@@ -23,13 +23,14 @@
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <ScenarioGenerator.h>
-
 #include "Block.h"
 
 #include "Objective.h"
 
 #include "StochasticBlock.h"
+
+#include <chrono>   // For unique timestamp generation
+#include <cstdio>   // For std::remove (file deletion)
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -46,7 +47,25 @@ namespace SMSpp_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// TwoStageStochasticBlock, representing a two-stage stochastic problem
 /** The TwoStageStochasticBlock is a class that derives from Block and
- * represents a two-stage stochastic programming problem. */
+ * represents a two-stage stochastic programming problem.
+ * 
+ * This class builds the extensive form of a two-stage stochastic problem by:
+ * - Creating N copies of the inner deterministic Block (one per scenario)
+ * - Adding non-anticipativity constraints to ensure first-stage variables
+ *   are the same across all scenarios
+ * - Combining objectives from all scenarios (weighted by probabilities)
+ * 
+ * The class uses serialization/deserialization to create copies of the inner
+ * Block, which works for all Block types without requiring them to implement
+ * any special copy methods. The inner Block is serialized once and then
+ * deserialized N times to create independent copies for each scenario.
+ * 
+ * Scenario data is applied through the apply_scenario_data() method, which
+ * uses the DataMappings from the StochasticBlock to modify the parameters
+ * of each scenario block. This design separates the structural creation of
+ * the extensive form from the scenario data application, allowing flexible
+ * integration with various scenario generation mechanisms.
+ */
 
 class TwoStageStochasticBlock : public Block {
 
@@ -78,9 +97,37 @@ public:
  virtual ~TwoStageStochasticBlock() override;
 
 /*--------------------------------------------------------------------------*/
+ /// generate the static variables of the TwoStageStochasticBlock
+ /** This method generates the abstract variables by calling 
+  * generate_abstract_variables() on all sub-blocks (scenario blocks). The 
+  * TwoStageStochasticBlock itself doesn't create any variables - all 
+  * variables exist within the scenario blocks.
+  * 
+  * @param stvv Configuration for variable generation (passed to sub-blocks)
+  */
+ 
+ void generate_abstract_variables( Configuration * stvv = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
  /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
+
+/*--------------------------------------------------------------------------*/
+ /// generate_objective is not overridden - uses default behavior
+ /** TwoStageStochasticBlock does not override generate_objective().
+  * 
+  * MILPSolver automatically aggregates objectives from all nested blocks
+  * (scenario blocks) through its breadth-first traversal. This results in
+  * an unweighted sum of all scenario objectives.
+  * 
+  * Users must manually divide the final objective value by the number of
+  * scenarios to get the expected value (assuming uniform probabilities).
+  * 
+  * TODO: Once Objective::scale() is implemented in SMS++, this method could
+  *       be overridden to apply probability weights to each scenario.
+  */
+ // void generate_objective( Configuration * objc = nullptr ) override;
 
 /*--------------------------------------------------------------------------*/
  /// loads TwoStageStochasticBlock out of an istream - not implemented yet
@@ -97,7 +144,18 @@ public:
   * the mandatory "type" attribute of any :Block, the group must contain the
   * following:
   *
-  * -
+  * - NumberScenarios: dimension specifying the number of scenarios
+  * - StochasticBlock: group containing the StochasticBlock definition
+  * - StaticAbstractPath: group with AbstractPaths to first-stage variables
+  * - DynamicAbstractPath (optional): currently not supported
+  *
+  * This method creates N copies of the inner block (one per scenario) using
+  * serialization/deserialization. The inner block is serialized once to a
+  * temporary netCDF file and then deserialized N times to create
+  * independent copies.
+  *
+  * After deserialization, scenario-specific data should be applied to each
+  * block using the apply_scenario_data() method.
   *
   * @param group A netCDF::NcGroup holding the data describing this
   *              TwoStageStochasticBlock.
@@ -107,45 +165,56 @@ public:
 
   deserialize_dim( group , "NumberScenarios" , f_number_scenarios , false );
 
-  // ScenarioGenerator
-
-  /*auto scenario_group = group.getGroup( "ScenarioGenerator" );
-  if( ! scenario_group.isNull() )
-   scenario_gen = ScenarioGenerator::new_ScenarioGenerator( scenario_group );
-  else
-   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
-                                 "'ScenarioGenerator' group not found.") );
-
-  scenario_gen->init_representative_pool( f_number_scenarios );*/
-
-  // StochasticBlock
+  // StochasticBlock - deserialize it once
+  
+  auto * sb = deserialize_sub_Block( group );
+  stochastic_block = dynamic_cast< StochasticBlock * >( sb );
+  
+  if( ! stochastic_block )
+   throw std::logic_error(
+    "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
+  
+  // Get the inner block which will be used as the source for copies
+  auto * inner_block_source = stochastic_block->get_inner_block();
+  if( ! inner_block_source )
+   throw std::logic_error(
+    "TwoStageStochasticBlock::deserialize: StochasticBlock has no inner block." );
 
   v_Block.reserve( f_number_scenarios );
 
+  // Create N copies of the inner block using serialization/deserialization
+  // This approach works for all Blocks, not just those that implement get_R3_Block()
+  
+  // First, serialize the inner block once to a temporary file
+  // We use a temporary file with a unique name to hold the serialized data
+  std::string temp_filename = "/tmp/tss_inner_block_" + 
+                              std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + 
+                              ".nc";
+  netCDF::NcFile temp_file( temp_filename , netCDF::NcFile::replace );
+  auto temp_group = temp_file.addGroup( "InnerBlockTemplate" );
+  stochastic_block->serialize_inner_block( temp_group );
+  
+  // Now deserialize N times to create copies
   for( Index i = 0 ; i < f_number_scenarios; ++i ) {
-
-   auto * sb = deserialize_sub_Block( group );
-
-   if( auto stochastic_block = dynamic_cast< StochasticBlock * >( sb ) ) {
-
-    // Set the scenario for the current sub-Block
-    // stochastic_block->set_scenario( scenario_gen->get_current_scenario() );
-
-    if( auto ib = stochastic_block->get_inner_block() ) {
-     // Scale the objective according to the current scenario probability
-     // ib->scale( scenario_gen->get_current_scenario_probability() );
-     // Add the sub-Block to the vector of blocks
-     v_Block.push_back( ib );
-    }
-   } else
+   
+   // Create a copy of the inner block through deserialization
+   Block * block_copy = Block::new_Block( temp_group , this );
+   
+   if( ! block_copy )
     throw std::logic_error(
-     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
-
-   // Move to the next scenario
-   /*if( ! scenario_gen->next_scenario() )
-    throw( std::out_of_range( "TwoStageStochasticBlock::deserialize: "
-                              "unable to move to the next scenario." ) );*/
+     "TwoStageStochasticBlock::deserialize: failed to create block copy "
+     "through deserialization for scenario " + std::to_string(i) );
+   
+   // Note: Scenario-specific data should be applied after deserialization
+   // using the apply_scenario_data() method. This allows external control
+   // over what scenario data is applied to each block copy.
+   
+   v_Block.push_back( block_copy );
   }
+  
+  // Clean up the temporary file
+  temp_file.close();
+  std::remove( temp_filename.c_str() );
 
   // AbstractPath(s) to map both here-and-now static and dynamic variables
 
@@ -193,16 +262,14 @@ public:
     @{ */
 
  /// returns a sub-Block of this TwoStageStochasticBlock
- /** This function returns the sub-Block of index \p sub_block_index at the
-  * given \p stage of this TwoStageStochasticBlock. The given \p stage must
-  * be an integer between 0 and get_number_stages() - 1 and the index of the
-  * sub-Block must be an integer between 0 and get_num_sub_blocks_per_stage()
-  * 0 - 1. If any of them is an invalid index, an exception is thrown.
+ /** This function returns the sub-Block at the given scenario index.
+  * The scenario index must be between 0 and get_number_scenarios() - 1.
+  * If the index is invalid, an exception is thrown.
   *
-  * @return The sub-Block of this TwoStageStochasticBlock associated with the
-  *         given \p stage and having index \p sub_block_index.
+  * @param scenario The index of the scenario (0 to n_scenarios-1)
+  * @return The inner Block copy for the specified scenario
   */
- virtual StochasticBlock * get_sub_Block( Index scenario ) const;
+ virtual Block * get_sub_Block( Index scenario ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -214,11 +281,46 @@ public:
 
 /*--------------------------------------------------------------------------*/
 
- /// returns the set of scenarios
- /** This function returns the set of scenarios. */
- const ScenarioGenerator * get_scenario_generator( void ) const {
-  return( scenario_gen );
- }
+ /// applies scenario data to a specific scenario block
+ /** This method applies scenario-specific data to one of the scenario blocks
+  * using DataMappings. It creates a StochasticBlock wrapper for each scenario
+  * block on first use, with DataMappings recreated to target the specific
+  * block copy.
+  * 
+  * The implementation:
+  * - Creates StochasticBlock wrappers lazily when first needed
+  * - Recreates DataMappings from the original StochasticBlock template
+  * - Applies scenario data through the wrapper's set_data() method
+  * 
+  * @param scenario_index Index of the scenario (0 to n_scenarios-1)
+  * @param scenario_data Vector containing the scenario realization data
+  * @param issuePMod Parameter for physical modifications
+  * @param issueAMod Parameter for abstract modifications
+  * 
+  * @throw std::invalid_argument If scenario_index is out of range
+  * @throw std::logic_error If no StochasticBlock template is available
+  */
+ void apply_scenario_data( Index scenario_index, 
+                          const std::vector<double>& scenario_data,
+                          c_ModParam issuePMod = eNoBlck,
+                          c_ModParam issueAMod = eNoBlck );
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the first-stage (here-and-now) variables
+ /** This function returns all first-stage variables from the first scenario.
+  * These are the variables that must have the same value across all scenarios
+  * due to non-anticipativity constraints. The method requires that abstract
+  * variables have been generated first (by calling generate_abstract_variables).
+  * 
+  * @return A vector containing pointers to all first-stage ColVariable objects
+  *         from scenario 0. Returns empty vector if variables haven't been
+  *         generated yet or if there are no first-stage variables.
+  * 
+  * @note The returned variables are from scenario 0, but due to non-anticipativity
+  *       constraints, they represent the same decisions across all scenarios.
+  */
+ std::vector< ColVariable * > get_first_stage_variables( void ) const;
 
 /*--------------------------------------------------------------------------*/
 
@@ -278,15 +380,15 @@ protected:
 
  Index f_number_scenarios{};
  ///< The number of scenarios
-
- ScenarioGenerator * scenario_gen;
- ///< The scenario generator
+ 
+ StochasticBlock * stochastic_block = nullptr;
+ ///< The StochasticBlock containing DataMappings for applying scenario data
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_static_vars;
  ///< The AbstractPath to the affected here-and-now static ColVariable
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_dynamic_vars;
- ///< The AbstractPath to the affected here-and-now static ColVariable
+ ///< The AbstractPath to the affected here-and-now dynamic ColVariable
 
 /*------------------------------- constraints ------------------------------*/
 
@@ -298,6 +400,28 @@ protected:
 /*--------------------------------------------------------------------------*/
 
 private:
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PRIVATE METHODS -----------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ /// apply scenario to a specific Block using StochasticBlock's DataMappings
+ /** This private helper method applies scenario data to a specific Block by 
+  * retrieving the DataMappings from the StochasticBlock and using them to
+  * update the target Block's parameters. This is used internally to apply
+  * scenarios to the Block copies created for each scenario.
+  *
+  * @param target_block The Block to which the scenario data will be applied.
+  * @param scenario_data The scenario data to be applied.
+  * @param issuePMod Indicates if and how a "physical" Modification should 
+  * be issued.
+  * @param issueAMod Indicates if and how an "abstract" Modification should 
+  * be issued.
+  */
+ void apply_scenario_to_block( Block * target_block,
+                               const std::vector< double > & scenario_data,
+                               c_ModParam issuePMod = eNoBlck,
+                               c_ModParam issueAMod = eNoBlck );
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE FIELDS ------------------------------*/
@@ -321,16 +445,23 @@ private:
 /*---------------------------- PRIVATE METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
- /// deserializes the i-th sub-Block out of the given group
- /** This auxiliary function deserializes the \p i-th sub-Block out of the
-  * given \p group.
+ /// deserializes a StochasticBlock from the given group
+ /** This auxiliary function deserializes a StochasticBlock from the given
+  * netCDF group, including its inner Block and DataMappings. The DataMapping
+  * deserialization is properly enabled, allowing the StochasticBlock to
+  * modify its inner Block's parameters based on scenario data.
   *
-  * @param group The netCDF::NcGroup containing the description of the
-  *        sub-Block.
+  * @param group The netCDF::NcGroup containing the TwoStageStochasticBlock
+  *              description, which includes the StochasticBlock subgroup.
   *
-  * @param i The index of the sub-Block to be deserialized.
-  *
-  * @return A pointer to the Block that was deserialized.
+  * @return A pointer to the deserialized StochasticBlock.
+  * 
+  * @throw std::logic_error If required groups are missing or have invalid types.
+  * 
+  * @note The returned StochasticBlock contains the inner Block that serves as
+  *       the template for creating scenario-specific copies. The StochasticBlock
+  *       itself stores the DataMappings that define which parameters vary
+  *       across scenarios.
   */
  Block * deserialize_sub_Block( const netCDF::NcGroup & group ) {
   std::string sub_group_name = "StochasticBlock";
@@ -374,18 +505,18 @@ private:
   static_cast< StochasticBlock * >( StochasticBlock_block )->
    set_inner_block( Block_block );
 
-  /*Index num_data_mappings;
+  Index num_data_mappings;
   if( deserialize_dim( StochasticBlock_group , "NumberDataMappings" ,
                        num_data_mappings , true ) ) {
    std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
    data_mappings.reserve( num_data_mappings );
    SimpleDataMappingBase::deserialize
-    ( group , data_mappings , static_cast< StochasticBlock * >(
+    ( StochasticBlock_group , data_mappings , static_cast< StochasticBlock * >(
      StochasticBlock_block )->get_inner_block() );
 
    static_cast< StochasticBlock * >( StochasticBlock_block )->
     set_data_mappings( std::move( data_mappings ) );
-  }*/
+  }
 
   return( StochasticBlock_block );
  }

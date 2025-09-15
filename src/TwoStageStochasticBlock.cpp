@@ -17,6 +17,10 @@
 /*--------------------------------------------------------------------------*/
 
 #include "TwoStageStochasticBlock.h"
+#include "DataMapping.h"
+#include <iostream>
+#include <cstdlib>  // for std::rand()
+#include <cstdio>   // for std::remove()
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -47,10 +51,29 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
+void TwoStageStochasticBlock::generate_abstract_variables( Configuration * stvv )
+{
+ if( variables_generated() )  // variables have already been generated
+  return;                     // nothing to do
+
+ // Call base class to generate variables in all sub-blocks
+ Block::generate_abstract_variables( stvv );
+
+ // Mark variables as generated
+ set_variables_generated();
+
+}  // end( TwoStageStochasticBlock::generate_abstract_variables )
+
+/*--------------------------------------------------------------------------*/
+
 void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stcc )
 {
  if( constraints_generated() )  // constraints have already been generated
   return;                       // nothing to do
+
+ // Ensure variables are generated first
+ if( ! variables_generated() )
+  generate_abstract_variables();
 
  bool gen_seq_anchr_cnstrs = true; // sequential by default
  if( ( ! stcc ) && f_BlockConfig )
@@ -142,6 +165,14 @@ void TwoStageStochasticBlock::generate_abstract_constraints( Configuration * stc
  set_constraints_generated();
 } // end( TwoStageStochasticBlock::generate_abstract_constraints )
 
+/*
+ generate_objective() is not overridden currently - MILPSolver handles 
+ objective
+aggregation automatically through its breadth-first traversal of all
+nested blocks, resulting in an unweighted sum of scenario objectives.
+So for solving it with the extensive form, it is ok for now.
+/* 
+
 /*--------------------------------------------------------------------------*/
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
@@ -152,6 +183,8 @@ void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
  if( anyone_there() )
   Block::add_Modification( std::make_shared< NBModification >( this ) , chnl );
 }
+
+
 
 /*--------------------------------------------------------------------------*/
 /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
@@ -169,11 +202,76 @@ int TwoStageStochasticBlock::get_objective_sense() const {
 
 /*--------------------------------------------------------------------------*/
 
-StochasticBlock * TwoStageStochasticBlock::get_sub_Block( Index scenario ) const {
+Block * TwoStageStochasticBlock::get_sub_Block( Index scenario ) const {
  if( scenario >= get_number_scenarios() )
-  throw( std::invalid_argument( "SDDPBlock::get_sub_Block: invalid scenario " +
+  throw( std::invalid_argument( "TwoStageStochasticBlock::get_sub_Block: invalid scenario " +
                                 std::to_string( scenario ) ) );
- return( static_cast< StochasticBlock * >( v_Block[ scenario ] ) );
+ return( v_Block[ scenario ] );
+}
+
+/*--------------------------------------------------------------------------*/
+
+std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables() const {
+ std::vector< ColVariable * > first_stage_vars;
+ 
+ // Check if variables have been generated
+ if( !variables_generated() || v_Block.empty() || v_paths_to_static_vars.empty() ) {
+  return first_stage_vars;  // Return empty vector
+ }
+ 
+ // Get the first scenario block (all scenarios have the same first-stage variables
+ // due to non-anticipativity constraints)
+ Block* scenario_0_block = v_Block[0];
+ if( !scenario_0_block ) {
+  return first_stage_vars;  // Return empty vector
+ }
+ 
+ // Iterate through all AbstractPaths to static (first-stage) variables
+ for( const auto& path : v_paths_to_static_vars ) {
+  // Get the number of variables this path points to
+  auto num_vars = path->get_number_elements< ColVariable >( scenario_0_block );
+  
+  // Get pointer to the first variable in the contiguous structure
+  auto* first_var = path->get_element< ColVariable >( scenario_0_block );
+  
+  // Add all variables from this path to our result vector
+  for( Index j = 0; j < num_vars; ++j ) {
+   first_stage_vars.push_back( first_var + j );
+  }
+ }
+ 
+ return first_stage_vars;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlock::apply_scenario_data( 
+    Index scenario_index, 
+    const std::vector<double>& scenario_data,
+    c_ModParam issuePMod,
+    c_ModParam issueAMod ) {
+ 
+ if( scenario_index >= f_number_scenarios )
+  throw std::invalid_argument( 
+   "TwoStageStochasticBlock::apply_scenario_data: invalid scenario index " +
+   std::to_string(scenario_index) );
+ 
+ if( !stochastic_block )
+  throw std::logic_error(
+   "TwoStageStochasticBlock::apply_scenario_data: no StochasticBlock available" );
+ 
+ // Get the block copy for this scenario
+ Block* scenario_block = v_Block[scenario_index];
+ 
+ if( !scenario_block ) {
+  throw std::logic_error(
+   "TwoStageStochasticBlock::apply_scenario_data: no block available for scenario " +
+   std::to_string(scenario_index) );
+ }
+ 
+ // Use the local apply_scenario_to_block() method to apply scenario data
+ // to the specific scenario block copy
+ apply_scenario_to_block( scenario_block, scenario_data, issuePMod, issueAMod );
 }
 
 /*--------------------------------------------------------------------------*/
@@ -213,6 +311,38 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 
  // scenario_set.serialize( group );
 
+}
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PRIVATE METHODS -------------------------------*/
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlock::apply_scenario_to_block( 
+    Block * target_block,
+    const std::vector< double > & scenario_data,
+    c_ModParam issuePMod,
+    c_ModParam issueAMod ) {
+ 
+ if( !stochastic_block )
+  throw std::logic_error(
+   "TwoStageStochasticBlock::apply_scenario_to_block: no StochasticBlock available" );
+ 
+ // Get the DataMappings from the StochasticBlock
+ const auto& data_mappings = stochastic_block->get_data_mappings();
+ 
+ // Save the original caller (the inner block of StochasticBlock)
+ Block* original_caller = stochastic_block->get_inner_block();
+ 
+ // Apply each mapping to the target block
+ for( auto & mapping : data_mappings ) {
+  mapping->set_caller( target_block );
+  mapping->set_data( scenario_data.begin(), issuePMod, issueAMod );
+ }
+ 
+ // Restore the original caller for all mappings
+ for( auto & mapping : data_mappings ) {
+  mapping->set_caller( original_caller );
+ }
 }
 
 /*--------------------------------------------------------------------------*/
