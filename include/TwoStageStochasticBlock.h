@@ -269,7 +269,7 @@ namespace SMSpp_di_unipi_it {
    ++i;
   } while( i < f_number_scenarios && scenario_generator->next_scenario( ));
 
-  // Restore the original inner block (don't destroy it)
+  // Restore the original inner block
   stochastic_block->set_inner_block( original_inner_block , false );
 
   // AbstractPath(s) to map both here-and-now static and dynamic variables
@@ -464,21 +464,21 @@ namespace SMSpp_di_unipi_it {
 
  /*--------------------------------------------------------------------------*/
 
- /// apply scenarios to all blocks using the ScenarioGenerator
- /** This private helper method applies scenario data to all block copies
-  * using the configured ScenarioGenerator. It is called during deserialization
-  * or when blocks are created if a generator is available.
-  *
-  * @param issuePMod Indicates if and how a "physical" Modification should
-  * be issued.
-  * @param issueAMod Indicates if and how an "abstract" Modification should
-  * be issued.
-  *
-  * @throw std::logic_error If no ScenarioGenerator is configured
-  */
- void apply_scenarios_from_generator(
-   c_ModParam issuePMod = eNoBlck ,
-   c_ModParam issueAMod = eNoBlck );
+//  /// apply scenarios to all blocks using the ScenarioGenerator
+//  /** This private helper method applies scenario data to all block copies
+//   * using the configured ScenarioGenerator. It is called during deserialization
+//   * or when blocks are created if a generator is available.
+//   *
+//   * @param issuePMod Indicates if and how a "physical" Modification should
+//   * be issued.
+//   * @param issueAMod Indicates if and how an "abstract" Modification should
+//   * be issued.
+//   *
+//   * @throw std::logic_error If no ScenarioGenerator is configured
+//   */
+//  void apply_scenarios_from_generator(
+//    c_ModParam issuePMod = eNoBlck ,
+//    c_ModParam issueAMod = eNoBlck );
 
  /*--------------------------------------------------------------------------*/
  /*---------------------------- PRIVATE FIELDS ------------------------------*/
