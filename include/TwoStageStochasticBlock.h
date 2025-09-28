@@ -138,8 +138,8 @@ public:
      v_Block.push_back( ib );
     }
    } else
-    throw std::logic_error(
-     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." );
+    throw( std::logic_error(
+     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." ) );
 
    // Move to the next scenario
    /*if( ! scenario_gen->next_scenario() )
