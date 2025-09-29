@@ -286,7 +286,7 @@ protected:
  ///< The AbstractPath to the affected here-and-now static ColVariable
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_dynamic_vars;
- ///< The AbstractPath to the affected here-and-now static ColVariable
+ ///< The AbstractPath to the affected here-and-now dynamic ColVariable
 
 /*------------------------------- constraints ------------------------------*/
 
@@ -374,18 +374,18 @@ private:
   static_cast< StochasticBlock * >( StochasticBlock_block )->
    set_inner_block( Block_block );
 
-  /*Index num_data_mappings;
+  Index num_data_mappings;
   if( deserialize_dim( StochasticBlock_group , "NumberDataMappings" ,
                        num_data_mappings , true ) ) {
    std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
    data_mappings.reserve( num_data_mappings );
    SimpleDataMappingBase::deserialize
-    ( group , data_mappings , static_cast< StochasticBlock * >(
+    ( StochasticBlock_group , data_mappings , static_cast< StochasticBlock * >(
      StochasticBlock_block )->get_inner_block() );
 
    static_cast< StochasticBlock * >( StochasticBlock_block )->
     set_data_mappings( std::move( data_mappings ) );
-  }*/
+  }
 
   return( StochasticBlock_block );
  }
