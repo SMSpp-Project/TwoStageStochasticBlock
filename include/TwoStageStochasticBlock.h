@@ -359,34 +359,6 @@ private:
                             "'" + sub_group_name +
                             "' has an invalid or incomplete description." ) );
 
-  auto Block_group = StochasticBlock_group.getGroup( "Block" );
-
-  if( Block_group.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
-                            "'Block' was not provided in '" + sub_group_name ) );
-
-  auto Block_block = new_Block( Block_group, this );
-  if( ! Block_block )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: the "
-                            "'Block' sub-group of the 'StochasticBlock' group"
-                            "has an invalid or incomplete description." ) );
-
-  static_cast< StochasticBlock * >( StochasticBlock_block )->
-   set_inner_block( Block_block );
-
-  Index num_data_mappings;
-  if( deserialize_dim( StochasticBlock_group , "NumberDataMappings" ,
-                       num_data_mappings , true ) ) {
-   std::vector< std::unique_ptr< SimpleDataMappingBase > > data_mappings;
-   data_mappings.reserve( num_data_mappings );
-   SimpleDataMappingBase::deserialize
-    ( StochasticBlock_group , data_mappings , static_cast< StochasticBlock * >(
-     StochasticBlock_block )->get_inner_block() );
-
-   static_cast< StochasticBlock * >( StochasticBlock_block )->
-    set_data_mappings( std::move( data_mappings ) );
-  }
-
   return( StochasticBlock_block );
  }
 
