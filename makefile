@@ -43,9 +43,10 @@ clean::
 
 # dependencies: every .o from its .cpp + every recursively included .h- - - -
 
-$(TSSBkSDR)/obj/TwoStageStochasticBlock.o: $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp \
+$(TSSBkSDR)/obj/TwoStageStochasticBlock.o: \
+	$(TSSBkSDR)/src/TwoStageStochasticBlock.cpp \
 	$(TSSBkSDR)/include/TwoStageStochasticBlock.h $(StcBlkH) $(SMS++OBJ)
-	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp -o $@ $(TSSBkINC) \
-	$(StcBlkINC) $(SMS++INC) $(SW)
+	$(CC) -c $(TSSBkSDR)/src/TwoStageStochasticBlock.cpp -o $@ \
+	$(TSSBkINC) $(StcBlkINC) $(SMS++INC) $(SW)
 
 ########################## End of makefile ###################################
