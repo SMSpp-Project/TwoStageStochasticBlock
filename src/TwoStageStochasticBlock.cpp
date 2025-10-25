@@ -213,6 +213,8 @@ Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
   throw( std::invalid_argument( "TwoStageStochasticBlock::get_Solution: "
 				"saving of dual variables not implemented yet"
 				) );
+ if( ! emptys )
+  sol->read( this );
 
  return( sol );
 
@@ -364,7 +366,7 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
   for( Block::Index i = 0 ; i < ns ; ++i ) {
    delete v_scenario_solutions[ i ];
    v_scenario_solutions[ i ] =
-                    TSSB->get_sub_Block( i )->get_Solution( f_inner_Config );
+            TSSB->get_sub_Block( i )->get_Solution( f_inner_Config , false );
    }
   }
 
