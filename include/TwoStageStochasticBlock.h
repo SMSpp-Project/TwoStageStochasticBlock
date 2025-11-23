@@ -27,8 +27,6 @@
 
 #include "Block.h"
 
-#include "Objective.h"
-
 #include "StochasticBlock.h"
 
 /*--------------------------------------------------------------------------*/
