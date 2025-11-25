@@ -382,6 +382,15 @@ namespace SMSpp_di_unipi_it {
  int get_objective_sense( void ) const override;
 
  /*--------------------------------------------------------------------------*/
+ /*----------------------- Methods for handling Solution --------------------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Methods for handling Solution
+  *  @{ */
+
+ Solution * get_Solution( Configuration * solc = nullptr ,
+                          bool emptys = false ) override;
+
+ /** @} ---------------------------------------------------------------------*/
  /*-------------------- Methods for handling Modification -------------------*/
  /*--------------------------------------------------------------------------*/
  /** @name Methods for handling Modification
@@ -499,6 +508,201 @@ namespace SMSpp_di_unipi_it {
  SMSpp_insert_in_factory_h;
 
  }; // end( class TwoStageStochasticBlock )
+
+/*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*---------------- CLASS TwoStageStochasticBlockSolution -------------------*/
+/*--------------------------------------------------------------------------*/
+/** The TwoStageStochasticBlockSolution class derives from Solution and
+ * implements it for TwoStageStochasticBlock. As such it may contain any of:
+ *
+ * - one single copy of the values of the here_and_now variables;
+ *
+ * - the complete Solution for all the Block corresponding to each individual
+ *   scenario;
+ *
+ * - the dual variables of the non-anticipativity constraints. */
+
+class TwoStageStochasticBlockSolution : public Solution
+{
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
+ public:
+
+/*------------------------------- FRIENDS ----------------------------------*/
+
+ friend TwoStageStochasticBlock;  ///< make TwoStageStochasticBlock friend
+
+/*------ CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlockSolution ------*/
+
+ /// constructor
+
+ explicit TwoStageStochasticBlockSolution( void ) : Solution() ,
+  f_inner_Config( nullptr ) {}
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// deserialize a TwoStageStochasticBlockSolution from a netCDF::NcGroup
+
+ void deserialize( const netCDF::NcGroup & group ) override;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// destructor
+
+ ~TwoStageStochasticBlockSolution() {
+  for( auto si : v_scenario_solutions )
+   delete( si );
+  }
+
+/*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution --*/
+
+ void read( const Block * block ) override final;
+
+ void write( Block * block ) override final;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+ /// serialize a TwoStageStochasticBlockSolution into a netCDF::NcGroup
+ /** Serialize a TwoStageStochasticBlockSolution into a netCDF::NcGroup. The
+  * format is the following:
+  *
+  * - The dimension "TotalNumberHereAndNow" containing the total number of
+  *   here_and_now variables. The dimension is mandatory if either
+  *   "HereAndNow" or "DualValues" exist, and optional otherwise.
+  *
+  * - The variable "HereAndNow", of type netCDF::NcDouble and indexed over
+  *   "TotalNumberHereAndNow". It contains the values of the here_and_now
+  *   variables, in row-major format (first all the variables of the first
+  *   group, then all the variables of the second group, ...), with
+  *   "HereAndNowStart" [see below] used to tell where each group starts
+  *   (and therefore ends). The variable is optional, but if it exists then
+  *   also the dimensios "NumberHereAndNow" and "TotalNumberHereAndNow" must
+  *   exist.
+  *
+  * - The dimension "NumberHereAndNowGroups" containing the number of groups
+  *   of here_and_now variables. The dimension is optional, if it is not
+  *   there and "HereAndNow" esists it is taken to be 1 (only one group).
+  *
+  * - The variable "HereAndNowStart", of type netCDF::NcInt and indexed over
+  *   "NumberHereAndNow". The values of the i-th group are saved into the
+  *   elements of HereAndNow[] with indices in the closed-open interval
+  *   [ HereAndNowStart[ i ] , HereAndNowStart[ i + 1 ] ), except for the
+  *   last group for which HereAndNowStart[ i + 1 ] is undefined and whose
+  *   elements are saved into the elements of HereAndNow[] with indices in
+  *   the interval [ HereAndNowStart[ i ] , TotalNumberHereAndNow ). The
+  *   variable is optional, but it must exist if "HereAndNow" exists.
+  *
+  * - The dimension "NumberScenarios" containing the number of scenarios. The
+  *   dimension is mandatory if either "ScenarioSolution_0" of
+  *   "ScenarioSolutionPrefix" (see below) are there and optional otherwise.
+  *
+  * - If "NumberScenarios" is defined, optional Solution data for the
+  *   sub-Block corresponding to each scenarios, under two possible
+  *   alternative forms:
+  *
+  *   = either the optional string "ScenarioSolutionPrefix", meaning that
+  *     the Solution for each scenario object for the sub-Block
+  *     corresponding to scenario T = 0, ..., NumberScenarios - 1, is saved
+  *     into the file with name "ScenarioSolutionPrefix_T.nc4"; these files
+  *     must then exist;
+  *
+  *   = or the groups "ScenarioSolution_T" for T = 0, ..., NumberScenarios
+  *     - 1, each containing the Solution object for the sub-Block
+  *     corresponding to scenario T. The groups are optional but either they
+  *     are all there or none is, hence one can just check the esistence of
+  *     Solution_0: if it exists then all other ones, and the dimension
+  *     "NumberScenarios", must exist.
+  *
+  *   During deserialize(), the first form is checked first, if it does not
+  *   exist the second one is checked, if none exist no Solution data is
+  *   present. During serialize(), the format is chosen by the current value
+  *   of the f_scenario_solution_fprefix field (see set_inner_Config()): if
+  *   it is empty() then the second (group-based) format is used, otherwise
+  *   the first (file-based) is.
+  *
+  * - The variable "DualValues",  of type netCDF::NcDouble indiced over both
+  *   the dimensions "TotalNumberHereAndNow" and "NumberScenarios", such that
+  *   DualValues[ i ][ s ] contains the optimal value of the dual variable
+  *   corresponding to the non-anticipaticity constraint regarding the
+  *   here_and_now variable i (with the same ordering as that of "HereAndNow")
+  *   for scenario s. There are two forms of these constraints, so the actual
+  *   values will depend on which form was chosen when the
+  *   TwoStageStochasticBlock was built, but in alla cases notice that there
+  *   are NumberScenarios - 1 non-anticipaticity constraints regarding each
+  *   variable. The variable is optional. */
+
+ void serialize( netCDF::NcGroup & group ) const override;
+
+/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
+
+ TwoStageStochasticBlockSolution * scale( double factor ) const override;
+
+ void sum( const Solution * solution , double multiplier ) override;
+
+ TwoStageStochasticBlockSolution * clone( bool empty = false ) const override;
+
+/*--------------------------------------------------------------------------*/
+ /// set the inner Config
+ /** Sets the f_inner_Config field, which is used in read() to Config-ure the
+  * Solution to the inner Block. If \p cfg is a
+  * SimpleConfiguration< std::pair< std::string , Configuration * > >, then
+  * cfg->first is used to fill the f_scenario_solution_fprefix field, which
+  * then means that in deserialize() the Solution to the scenario Block is
+  * written into files with that as a prefix rather than as sub-groups; see
+  * the comments to serialize(). */
+
+ void set_inner_Config( Configuration * cfg ) {
+  using SCPSCp = SimpleConfiguration< std::pair< std::string ,
+                                                 Configuration * > >;
+  if( auto sscfg = dynamic_cast< SCPSCp * >( cfg ) ) {
+   f_scenario_solution_fprefix = sscfg->f_value.first;
+   cfg = sscfg->f_value.second;
+   }
+
+  f_inner_Config = cfg;
+  }
+
+/*-------------------- PROTECTED PART OF THE CLASS -------------------------*/
+
+ protected:
+
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+
+ void print( std::ostream &output ) const override {
+  output << "TwoStageStochasticBlockSolution [" << this << "]: " << std::endl;
+  }
+
+/*---------------------- PRIVATE PART OF THE CLASS -------------------------*/
+
+ private:
+
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
+
+ std::vector< std::vector< double > > v_here_and_now;
+ ///< values of here_and_now variables, divided into their groups
+
+ Configuration * f_inner_Config;
+ ///< the Configuration for scenario Solution
+
+ std::vector< Solution * > v_scenario_solutions;
+ ///< solutions for each scenario
+
+ std::string f_scenario_solution_fprefix;
+ ///< the prefix for the filenames containing the scenario solutions
+
+ /*!!
+  boost::multi_array< double , 2 > v_dual_values;
+  dual values of non_anticipaticity constraints
+  */
+
+/*--------------------------------------------------------------------------*/
+
+ SMSpp_insert_in_factory_h;
+
+/*--------------------------------------------------------------------------*/
+
+ };  // end( class( TwoStageStochasticBlockSolution ) )
 
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/

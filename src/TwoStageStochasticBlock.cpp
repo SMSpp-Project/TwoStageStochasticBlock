@@ -32,7 +32,11 @@ using namespace SMSpp_di_unipi_it;
 /*----------------------------- STATIC MEMBERS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
+// register TwoStageStochasticBlock to the Block factory
 SMSpp_insert_in_factory_cpp_1( TwoStageStochasticBlock );
+
+// register TwoStageStochasticBlockSolution to the Solution factory
+SMSpp_insert_in_factory_cpp_0( TwoStageStochasticBlockSolution );
 
 /*--------------------------------------------------------------------------*/
 /*-------------------- METHODS of TwoStageStochasticBlock ------------------*/
@@ -289,8 +293,44 @@ const {
 }
 
 /*--------------------------------------------------------------------------*/
-/*----- METHODS DESCRIBING THE BEHAVIOR OF AN TwoStageStochasticBlock ------*/
+/*----------------------- Methods for handling Solution --------------------*/
 /*--------------------------------------------------------------------------*/
+
+Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
+						  bool emptys )
+{
+ Index wsol = 1;
+ auto * sol = new TwoStageStochasticBlockSolution;
+
+ if( ( ! solc ) && f_BlockConfig )
+  solc = f_BlockConfig->f_solution_Configuration;
+
+ if( auto config = dynamic_cast< SimpleConfiguration< int > * >( solc ) )
+  wsol = config->f_value;
+ else
+  if( auto config =
+      dynamic_cast< SimpleConfiguration< std::pair< int , Configuration * >
+                                         > * >( solc ) ) {
+   wsol = config->f_value.first;
+   sol->set_inner_Config( config->f_value.second );
+   }
+
+ if( wsol & 1 )
+  sol->v_here_and_now.resize( v_paths_to_static_vars.size() );
+
+ if( wsol & 2 )
+  sol->v_scenario_solutions.resize( get_number_scenarios() );
+
+ if( wsol & 4 )
+  throw( std::invalid_argument( "TwoStageStochasticBlock::get_Solution: "
+				"saving of dual variables not implemented yet"
+				) );
+ if( ! emptys )
+  sol->read( this );
+
+ return( sol );
+
+ }  // end( TwoStageStochasticBlock::get_Solution )
 
 /*--------------------------------------------------------------------------*/
 /*------- METHODS FOR PRINTING & SAVING THE TwoStageStochasticBlock --------*/
@@ -392,6 +432,306 @@ void TwoStageStochasticBlock::set_scenario_generator(
  // This method is primarily for setting the generator before deserialization
  // or for future use cases where scenarios might need to be changed.
 }
+
+/*--------------------------------------------------------------------------*/
+/*------------- METHODS OF TwoStageStochasticBlockSolution -----------------*/
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlockSolution::deserialize(
+					      const netCDF::NcGroup & group )
+{
+ // call the method of the base class - not, it does nothing
+ // Solution::deserialize( group );
+
+ // read dimensions- - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ int tNHaN = 0;  // total number of here_and_now variables
+ deserialize_dim( group , "TotalNumberHereAndNow" , tNHaN , true );
+ 
+ int NHaNG = 1;   // number of here_and_now variables groups
+ deserialize_dim( group , "NumberHereAndNowGroups" , NHaNG , true );
+
+ // read here_and_now variables- - - - - - - - - - - - - - - - - - - - - - -
+ // if "HereAndNow" is not there, v_here_and_now.empty() == true
+ if( tNHaN ) {
+  if( NHaNG == 1 ) {  // it's a vector
+   v_here_and_now.resize( 1 );
+   ::deserialize< double >( group , "HereAndNow" , v_here_and_now[ 0 ] ,
+			    true );
+   if( v_here_and_now[ 0 ].empty() )
+    v_here_and_now.clear();
+   }
+  else                // it's a vector of vectors
+   ::deserialize< double >( group , "HereAndNow" , "HereAndNowStart" ,
+			    v_here_and_now , true );
+  }
+
+ // read scenario solutions- - - - - - - - - - - - - - - - - - - - - - - - -
+ int NS = 0;     // number of scenarios
+ deserialize_dim( group , "NumberScenarios" , NS , true );
+
+ if( NS ) {
+  ::deserialize( group , f_scenario_solution_fprefix ,
+		 "ScenarioSolutionPrefix" , true );
+
+  if( f_scenario_solution_fprefix.empty() ) {
+   for( int i = 0 ; i < NS ; ++i ) {
+    std::string sgn = "ScenarioSolution_" + std::to_string( i );
+    auto sg = group.getGroup( sgn );
+    if( sg.isNull() ) {
+     if( ! i )
+      break;
+     else
+      throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+                          "group" + sgn + " not present" ) );
+     }
+    if( ! i )
+     v_scenario_solutions.resize( NS );
+    if( auto si = Solution::new_Solution( sg ) )
+     v_scenario_solutions[ i ] = si;
+    else
+     throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  " deserialize from group " + sgn + " failed" ) );
+    }
+   }
+  else
+   for( int i = 0 ; i < NS ; ++i ) {
+    std::string sfn = f_scenario_solution_fprefix + "_" +
+                      std::to_string( i ) + ".nc4";
+    if( auto si = Solution::deserialize( sfn ) )
+     v_scenario_solutions[ i ] = si;
+    else
+     throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  " deserialize from file " + sfn + "failed" ) );
+    }
+  }
+
+ // read the dual variables of non-anticipativity constraints - - - - - - - -
+ //!! TODO
+
+ }  // end( TwoStageStochasticBlockSolution::deserialize )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlockSolution::read( const Block * block )
+{
+ auto TSSB = dynamic_cast< const TwoStageStochasticBlock * >( block );
+ if( ! TSSB )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::read: "
+				"block is not a TwoStageStochasticBlock" ) );
+
+ // read here_and_now variables- - - - - - - - - - - - - - - - - - - - - - -
+ if( ! v_here_and_now.empty() ) {
+  auto b0 = TSSB->get_sub_Block( 0 );
+  auto & ptshanv = TSSB->get_paths_to_static_here_and_now_vars();
+  v_here_and_now.resize( ptshanv.size() );
+  for( std::size_t i = 0 ; i < ptshanv.size() ; ++i ) {
+   auto nv = ptshanv[ i ]->get_number_elements< ColVariable >( b0 );
+   v_here_and_now[ i ].resize( nv );
+   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
+   for( std::size_t j = 0 ; j < nv ; ++j , ++elem )
+    v_here_and_now[ i ][ j ] = elem->get_value();
+   }
+  }
+
+ // read scenario solutions- - - - - - - - - - - - - - - - - - - - - - - - -
+ if( ! v_scenario_solutions.empty() ) {
+  auto ns = TSSB->get_number_scenarios();
+  v_scenario_solutions.resize( ns , nullptr );
+  for( Block::Index i = 0 ; i < ns ; ++i ) {
+   delete v_scenario_solutions[ i ];
+   v_scenario_solutions[ i ] =
+            TSSB->get_sub_Block( i )->get_Solution( f_inner_Config , false );
+   }
+  }
+
+ // read the dual variables of non-anticipativity constraints - - - - - - - -
+ //!! TODO
+
+ }  // end( TwoStageStochasticBlockSolution::read )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlockSolution::write( Block * block )
+{
+ auto TSSB = dynamic_cast< TwoStageStochasticBlock * >( block );
+ if( ! TSSB )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				"block is not a TwoStageStochasticBlock" ) );
+
+ // write here_and_now variables - - - - - - - - - - - - - - - - - - - - - -
+ if( ! v_here_and_now.empty() ) {
+  auto b0 = TSSB->get_sub_Block( 0 );
+  auto & ptshanv = TSSB->get_paths_to_static_here_and_now_vars();
+  if( v_here_and_now.size() != ptshanv.size() )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				 "inconsistent number of groups of h&n "
+				 "variables" ) );
+
+  for( std::size_t i = 0 ; i < ptshanv.size() ; ++i ) {
+   auto nv = ptshanv[ i ]->get_number_elements< ColVariable >( b0 );
+   if( v_here_and_now[ i ].size() != nv )
+    throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				  "inconsistent number of h&n variables "
+				  "in group " + std::to_string( i ) ) );
+
+   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
+   for( Block::Index j = 0 ; j < nv ; ++j , ++elem )
+    elem->set_value( v_here_and_now[ i ][ j ] );
+   }
+  }
+
+ // write scenario solutions - - - - - - - - - - - - - - - - - - - - - - - -
+ if( ! v_scenario_solutions.empty() ) {
+  auto ns = TSSB->get_number_scenarios();
+  if( v_scenario_solutions.size() != ns )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				 "inconsistent scenarios number" ) );
+
+  for( Block::Index i = 0 ; i < ns ; ++i )
+   v_scenario_solutions[ i ]->write( TSSB->get_sub_Block( i ) );
+  }
+
+ // write the dual variables of non-anticipativity constraints- - - - - - - -
+ //!! TODO
+
+ }  // end( TwoStageStochasticBlockSolution::write )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group )
+ const
+{
+ // call the method of the base class
+ Solution::serialize( group );
+
+ // serialize the here_and_now variables- - - - - - - - - - - - - - - - - - -
+ if( ! v_here_and_now.empty() ) {
+  int tmnhan = 0;
+  for( auto hani : v_here_and_now )
+   tmnhan += hani.size();
+
+  auto TNHaN = group.addDim( "TotalNumberHereAndNow" , tmnhan );
+
+  if( v_here_and_now.size() == 1 )
+   ::serialize< double >( group , "HereAndNow" , netCDF::NcDouble() ,
+			  TNHaN , v_here_and_now[ 0 ] );
+  else {
+   auto NHaNG = group.addDim( "NumberHereAndNowGroups" ,
+			      v_here_and_now.size() );
+
+   ::serialize< double >( group , "HereAndNow" , netCDF::NcDouble() ,
+			  "HereAndNowStart" , v_here_and_now ,
+			  TNHaN , NHaNG );
+   }
+  }
+
+ // serialize the scenario solutions - - - - - - - - - - - - - - - - - - - -
+ if( ! v_scenario_solutions.empty() ) {
+  auto NS = group.addDim( "NumberScenarios" , v_scenario_solutions.size() );
+
+  if( f_scenario_solution_fprefix.empty() ) {  // group-based format
+   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
+    std::string sgn = "ScenarioSolution_" + std::to_string( i );
+    auto sg = group.addGroup( sgn );
+    v_scenario_solutions[ i ]->serialize( sg );
+    }
+   }
+  else {                                       // file-based format
+   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
+    std::string sfn = f_scenario_solution_fprefix + "_" +
+                      std::to_string( i ) + ".nc4";
+    v_scenario_solutions[ i ]->serialize( sfn );
+    }
+   }
+  }
+
+ // serialize the scenario dual variables of non-anticipativity constraints - 
+ //!! TODO
+
+ }  // end( TwoStageStochasticBlockSolution::serialize( NcGroup & ) )
+
+/*--------------------------------------------------------------------------*/
+
+TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::scale(
+						        double factor ) const
+{
+ auto sol = clone();  // create a copy of this TwoStageStochasticBlockSolution
+
+ if( factor == 1 )
+  return( sol );
+
+ for( auto & hani : sol->v_here_and_now )
+  for( auto & hanij : hani )
+   hanij *= factor;
+
+ for( auto ssi : sol->v_scenario_solutions )
+  ssi->scale( factor );
+
+ //!! TODO: deal with v_dual_values
+
+ return( sol );
+
+ }  // end( TwoStageStochasticBlockSolution::scale )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
+					   double multiplier )
+{
+ auto TSSBS = dynamic_cast< const TwoStageStochasticBlockSolution * >(
+								  solution );
+ if( ! TSSBS )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				"solution not a "
+				"TwoStageStochasticBlockSolution" ) );
+
+ if( v_here_and_now.size() != TSSBS->v_here_and_now.size() )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				"inconsistent here-and-now groups" ) );
+
+ for( std::size_t i = 0 ; i < v_here_and_now.size() ; ++i ) {
+  if( v_here_and_now[ i ].size() != TSSBS->v_here_and_now[ i ].size() )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				 "inconsistent here-and-now group "
+				 + std::to_string( i ) ) );
+
+  for( std::size_t j = 0 ; j < v_here_and_now[ i ].size() ; ++j )
+   v_here_and_now[ i ][ j ] += multiplier * TSSBS->v_here_and_now[ i ][ j ];
+  }
+
+ if( v_scenario_solutions.size() != TSSBS->v_scenario_solutions.size() )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				"inconsistent number of scenarios" ) );
+
+ for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i )
+  v_scenario_solutions[ i ]->sum( TSSBS->v_scenario_solutions[ i ] ,
+				  multiplier );
+
+ //!! TODO: deal with v_dual_values
+ 
+ }  // end( TwoStageStochasticBlockSolution::sum )
+
+/*--------------------------------------------------------------------------*/
+
+TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::clone(
+							  bool empty ) const
+{
+ auto sol = new TwoStageStochasticBlockSolution();
+
+ if( ! empty ) {
+  sol->v_here_and_now = v_here_and_now;
+  sol->v_scenario_solutions.resize( v_scenario_solutions.size() );
+  for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i )
+   sol->v_scenario_solutions[ i ] = v_scenario_solutions[ i ]->clone();
+  //!! sol->v_dual_values = v_dual_values;
+  }
+
+ return( sol );
+
+ }  // end( TwoStageStochasticBlockSolution::clone )
 
 /*--------------------------------------------------------------------------*/
 /*---------------- End File TwoStageStochasticBlock.cpp --------------------*/

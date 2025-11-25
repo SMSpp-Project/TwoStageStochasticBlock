@@ -40,7 +40,7 @@ include $(SMS++SDR)/lib/makefile-c
 
 # define input macros for StochasticBlock makefile, then include it
 StcBlkSDR = $(TSSBkSDR)/../StochasticBlock
-include $(StcBlkSDR)/makefile
+include $(StcBlkSDR)/makefile-s
 
 # include the makefile requiring all external modules in input
 include $(TSSBkSDR)/makefile
