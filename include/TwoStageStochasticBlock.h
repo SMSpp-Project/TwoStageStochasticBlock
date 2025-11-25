@@ -382,6 +382,32 @@ namespace SMSpp_di_unipi_it {
  int get_objective_sense( void ) const override;
 
  /*--------------------------------------------------------------------------*/
+ /// return the paths to static here-and-now variables
+ /** Returns a const reference to the vector of AbstractPaths that point to
+  * the static (first-stage, here-and-now) variables in the scenario blocks.
+  *
+  * @return const reference to v_paths_to_static_vars
+  */
+
+ const std::vector< std::unique_ptr< AbstractPath > > &
+                       get_paths_to_static_here_and_now_vars( void ) const {
+  return( v_paths_to_static_vars );
+  }
+
+ /*--------------------------------------------------------------------------*/
+ /// return the paths to dynamic here-and-now variables
+ /** Returns a const reference to the vector of AbstractPaths that point to
+  * the dynamic (first-stage, here-and-now) variables in the scenario blocks.
+  *
+  * @return const reference to v_paths_to_dynamic_vars
+  */
+
+ const std::vector< std::unique_ptr< AbstractPath > > &
+                       get_paths_to_dynamic_here_and_now_vars( void ) const {
+  return( v_paths_to_dynamic_vars );
+  }
+
+ /*--------------------------------------------------------------------------*/
  /*----------------------- Methods for handling Solution --------------------*/
  /*--------------------------------------------------------------------------*/
  /** @name Methods for handling Solution
