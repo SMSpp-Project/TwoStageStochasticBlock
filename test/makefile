@@ -4,9 +4,9 @@
 #                                                                            #
 #   makefile of test (for TwoStageStochasticBlock)                           #
 #                                                                            #
-#   Benoît Tran                                                              #
-#   Dipartimento di Informatica                                              #
-#   Universita' di Pisa                                                      #
+#                                  Benoît Tran                               #
+#                          Dipartimento di Informatica                       #
+#                              Universita' di Pisa                           #
 #                                                                            #
 ##############################################################################
 

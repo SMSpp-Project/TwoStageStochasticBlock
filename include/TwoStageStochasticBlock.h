@@ -17,15 +17,13 @@
 
 #ifndef __TwoStageStochasticBlock
 #define __TwoStageStochasticBlock
-/* self-identification: #endif at the end of the file */
+                      /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 #include "Block.h"
-
-#include "Objective.h"
 
 #include "StochasticBlock.h"
 
@@ -116,7 +114,7 @@ namespace SMSpp_di_unipi_it {
 
  /// destructor of TwoStageStochasticBlock
 
- virtual ~TwoStageStochasticBlock( ) override;
+ virtual ~TwoStageStochasticBlock() override;
 
  /*--------------------------------------------------------------------------*/
  /// generate the static variables of the TwoStageStochasticBlock
@@ -156,7 +154,7 @@ namespace SMSpp_di_unipi_it {
 
  void load( std::istream & input , char frmt = 0 ) override {
   throw(std::logic_error(
-   "TwoStageStochasticBlock::load: method not implemented yet." ));
+   "TwoStageStochasticBlock::load: method not implemented yet." ) );
  }
 
  /*--------------------------------------------------------------------------*/
@@ -189,15 +187,15 @@ namespace SMSpp_di_unipi_it {
 
   // Get the StochasticBlock group which contains the inner Block definition
   auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
-  if( StochasticBlock_group.isNull( ))
+  if( StochasticBlock_group.isNull() )
    throw(std::logic_error( "TwoStageStochasticBlock::deserialize: "
-    "'StochasticBlock' not found." ));
+    "'StochasticBlock' not found." ) );
 
   // Get the Block group that contains the inner block definition
   auto Block_group = StochasticBlock_group.getGroup( "Block" );
-  if( Block_group.isNull( ))
+  if( Block_group.isNull() )
    throw(std::logic_error( "TwoStageStochasticBlock::deserialize: "
-    "'Block' sub-group not found in 'StochasticBlock'." ));
+    "'Block' sub-group not found in 'StochasticBlock'." ) );
 
   // Deserialize the StochasticBlock (with DataMappings)
   // The new_Block function will handle all the deserialization including
@@ -210,7 +208,7 @@ namespace SMSpp_di_unipi_it {
     "not a StochasticBlock." );
 
   // Save the original inner block to restore later
-  auto * original_inner_block = stochastic_block->get_inner_block( );
+  auto * original_inner_block = stochastic_block->get_inner_block();
   if( ! original_inner_block )
    throw std::logic_error( "TwoStageStochasticBlock::deserialize: "
     "StochasticBlock has no inner block." );
@@ -220,11 +218,11 @@ namespace SMSpp_di_unipi_it {
   // Check for a ScenarioGenerator group (could be DiscreteScenarioSet or
   // other)
   auto DiscreteScenarioSet_group = group.getGroup( "DiscreteScenarioSet" );
-  bool has_discrete_scenarios = ! DiscreteScenarioSet_group.isNull( );
+  bool has_discrete_scenarios = ! DiscreteScenarioSet_group.isNull();
 
   if( has_discrete_scenarios ) {
    // Create and deserialize the DiscreteScenarioSet
-   auto * dss = new DiscreteScenarioSet( );
+   auto * dss = new DiscreteScenarioSet();
    dss->deserialize( DiscreteScenarioSet_group );
    scenario_generator = dss; // Always owned
 
@@ -233,7 +231,7 @@ namespace SMSpp_di_unipi_it {
   }
 
   // Create blocks with scenarios applied using StochasticBlock as applicator
-  for( Index i = 0; i < f_number_scenarios; ++i ) {
+  for( Index i = 0; i < f_number_scenarios ; ++i ) {
    // Create a fresh copy of the inner block through deserialization
    Block * block_copy = Block::new_Block( Block_group , this );
 
@@ -241,7 +239,7 @@ namespace SMSpp_di_unipi_it {
     throw std::logic_error(
      "TwoStageStochasticBlock::deserialize: failed to create block copy "
      "through deserialization for scenario " +
-     std::to_string( i ));
+     std::to_string( i ) );
 
    if( has_discrete_scenarios ) {
     // Apply scenario data if DiscreteScenarioSet is available
@@ -249,20 +247,19 @@ namespace SMSpp_di_unipi_it {
     stochastic_block->set_inner_block( block_copy , false );
 
     // 2. Update all DataMapping callers to point to the new block
-    const auto & data_mappings = stochastic_block->get_data_mappings( );
-    for(auto & dm : data_mappings) {
+    const auto & data_mappings = stochastic_block->get_data_mappings();
+    for( auto & dm : data_mappings )
      dm->set_caller( block_copy );
-    }
 
     // 3. Apply the current scenario through StochasticBlock
-    auto scenario_data = scenario_generator->get_current_scenario( );
+    auto scenario_data = scenario_generator->get_current_scenario();
     // Convert span to vector for compatibility with set_data
-    std::vector< double > scenario_vec( scenario_data.begin( ) , scenario_data.end( ));
+    std::vector< double > scenario_vec( scenario_data.begin() , scenario_data.end() );
     stochastic_block->set_data( scenario_vec );
 
     // Move to next scenario for next iteration
     if( i < f_number_scenarios - 1 )
-     scenario_generator->next_scenario( );
+     scenario_generator->next_scenario();
    }
 
    // Add the block to v_Block
@@ -276,19 +273,19 @@ namespace SMSpp_di_unipi_it {
 
   auto static_path_group = group.getGroup( "StaticAbstractPath" );
 
-  if( ! static_path_group.isNull( ))
+  if( ! static_path_group.isNull() )
    AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars
      );
   else
    throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
-    "group 'StaticAbstractPath' was not found." ));
+    "group 'StaticAbstractPath' was not found." ) );
 
   auto dynamic_path_group = group.getGroup( "DynamicAbstractPath" );
 
-  if( ! dynamic_path_group.isNull( ))
+  if( ! dynamic_path_group.isNull() )
    throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
     "cannot handle dynamic here-and-now variables "
-    "right now." ));
+    "right now." ) );
   // AbstractPath::vector_deserialize( dynamic_path_group ,
   // v_paths_to_dynamic_vars );
 
@@ -579,7 +576,7 @@ class TwoStageStochasticBlockSolution : public Solution
 
  ~TwoStageStochasticBlockSolution() {
   for( auto si : v_scenario_solutions )
-   delete( si );
+   delete si;
   }
 
 /*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution --*/
