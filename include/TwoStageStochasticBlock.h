@@ -16,26 +16,27 @@
 /*--------------------------------------------------------------------------*/
 
 #ifndef __TwoStageStochasticBlock
- #define __TwoStageStochasticBlock
+#define __TwoStageStochasticBlock
                       /* self-identification: #endif at the end of the file */
 
 /*--------------------------------------------------------------------------*/
 /*------------------------------ INCLUDES ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-#include <ScenarioGenerator.h>
-
 #include "Block.h"
 
 #include "StochasticBlock.h"
+
+#include "ScenarioGenerator.h"
+
+#include "DiscreteScenarioSet.h"
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
 /// namespace for the Structured Modeling System++ (SMS++)
-namespace SMSpp_di_unipi_it
-{
+namespace SMSpp_di_unipi_it {
 
 /*--------------------------------------------------------------------------*/
 /*------------------- CLASS TwoStageStochasticBlock ------------------------*/
@@ -44,21 +45,43 @@ namespace SMSpp_di_unipi_it
 /*--------------------------------------------------------------------------*/
 /// TwoStageStochasticBlock, representing a two-stage stochastic problem
 /** The TwoStageStochasticBlock is a class that derives from Block and
- * represents a two-stage stochastic programming problem. */
+ * represents a two-stage stochastic programming problem.
+ *
+ * This class builds the extensive form of a two-stage stochastic problem by:
+ * - Creating N copies of the inner deterministic Block (one per scenario)
+ * - Adding non-anticipativity constraints to ensure first-stage variables
+ *   are the same across all scenarios,
+ * - Combining objectives weighted by probabilities.
+ *
+ *   TODO: We need Objective::scale() to be implemented. Currently we have a
+ * workaround for LinearFunction objectives (like
+ * CapacitatedFacilityLocationBlock or UCBlock) that should be replaced.
+ *
+ * The class uses serialization/deserialization to create copies of the inner
+ * Block, which works for all Block types without requiring them to implement
+ * any special copy methods. The inner Block is serialized once and then
+ * deserialized N times to create independent copies for each scenario.
+ *
+ * Scenario data is applied automatically when a ScenarioGenerator is provided,
+ * either through deserialization (when a ScenarioSet is present in the netCDF)
+ * or by explicitly setting one via set_scenario_generator(). The class uses
+ * the StochasticBlock as a temporary "applicator" for scenarios: it sets each
+ * block copy as the inner block of StochasticBlock, applies the scenario data
+ * through StochasticBlock's set_data() method (which uses the DataMappings),
+ * then restores the original inner block. This approach eliminates the need
+ * for DataMapping::set_caller() and provides a cleaner architecture.
+ */
 
-class TwoStageStochasticBlock : public Block
-{
-/*--------------------------------------------------------------------------*/
-/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
-/*--------------------------------------------------------------------------*/
-
-public:
-
-/*--------------------------------------------------------------------------*/
-/*--------- CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlock -----------*/
-/*--------------------------------------------------------------------------*/
-/** @name Constructing and destructing TwoStageStochasticBlock
- *  @{ */
+ class TwoStageStochasticBlock : public Block {
+ /*--------------------------------------------------------------------------*/
+ /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+ /*--------------------------------------------------------------------------*/
+ public:
+ /*--------------------------------------------------------------------------*/
+ /*--------- CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlock -----------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Constructing and destructing TwoStageStochasticBlock
+  *  @{ */
 
  /// constructor
  /** Constructs a TwoStageStochasticBlock with the given \p father Block.
@@ -66,116 +89,218 @@ public:
   * used as the void constructor.
   *
   * @param father A pointer to the father Block of this
-  *               TwoStageStochasticBlock. */
+  * TwoStageStochasticBlock.
+  */
+ TwoStageStochasticBlock( Block * father = nullptr ) : Block( father ) {}
 
- TwoStageStochasticBlock( Block * father = nullptr ) : Block( father ) { }
+ /*--------------------------------------------------------------------------*/
 
-/*--------------------------------------------------------------------------*/
+ /// constructor with ScenarioGenerator
+ /** Constructs a TwoStageStochasticBlock with the given \p father Block and
+  * \p generator ScenarioGenerator. When a generator is provided, scenarios
+  * will be automatically applied to block copies during creation.
+  * The TwoStageStochasticBlock takes ownership of the generator and will
+  * delete it in the destructor.
+  *
+  * @param father A pointer to the father Block of this
+  * TwoStageStochasticBlock.
+  * @param generator A pointer to the ScenarioGenerator for automatic scenario
+  * application.
+  */
+ TwoStageStochasticBlock( Block * father , ScenarioGenerator * generator )
+  : Block( father ) , scenario_generator( generator ) {}
+
+ /*--------------------------------------------------------------------------*/
 
  /// destructor of TwoStageStochasticBlock
 
  virtual ~TwoStageStochasticBlock() override;
 
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+ /// generate the static variables of the TwoStageStochasticBlock
+ /** This method generates the abstract variables by calling
+  * generate_abstract_variables() on all sub-blocks (scenario blocks). The
+  * TwoStageStochasticBlock itself doesn't create any variables - all
+  * variables exist within the scenario blocks.
+  *
+  * @param stvv Configuration for variable generation (passed to sub-blocks)
+  */
+
+ void generate_abstract_variables( Configuration * stvv = nullptr ) override;
+
+ /*--------------------------------------------------------------------------*/
  /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
 
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+ /// generate the objective of the TwoStageStochasticBlock
+ /** Generates the objective function for the two-stage stochastic block.
+  *
+  * This method first generates objectives for all scenario blocks, then
+  * scales each scenario's objective by its probability weight (if a
+  * ScenarioGenerator is available). Finally, it calls the base class
+  * method to aggregate the weighted objectives.
+  *
+  * If no ScenarioGenerator is available, scenarios are implicitly given
+  * equal weights (unscaled objectives are summed).
+  *
+  * @param objc optional Configuration for objective generation
+  */
+ void generate_objective( Configuration * objc = nullptr ) override;
+
+ /*--------------------------------------------------------------------------*/
  /// loads TwoStageStochasticBlock out of an istream - not implemented yet
 
  void load( std::istream & input , char frmt = 0 ) override {
-  throw( std::logic_error(
+  throw(std::logic_error(
    "TwoStageStochasticBlock::load: method not implemented yet." ) );
-  }
+ }
 
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
  /// de-serialize a TwoStageStochasticBlock out of netCDF::NcGroup
  /** The method takes a netCDF::NcGroup supposedly containing all the
   * information required to de-serialize the TwoStageStochasticBlock. Besides
   * the mandatory "type" attribute of any :Block, the group must contain the
   * following:
   *
-  * -
+  * - NumberScenarios: dimension specifying the number of scenarios
+  * - StochasticBlock: group containing the StochasticBlock definition
+  * - StaticAbstractPath: group with AbstractPaths to first-stage variables
+  * - DynamicAbstractPath (optional): currently not supported
+  *
+  * This method creates N copies of the inner block (one per scenario) by
+  * deserializing directly from the Block group in the netCDF data. This
+  * avoids the need for temporary files and creates independent copies
+  * efficiently.
+  *
+  * If a ScenarioGenerator group is present (e.g., DiscreteScenarioSet), it
+  * will be automatically deserialized and used to apply scenario data to each
+  * block copy.
   *
   * @param group A netCDF::NcGroup holding the data describing this
   *              TwoStageStochasticBlock.
   */
 
  void deserialize( const netCDF::NcGroup & group ) override {
-
   deserialize_dim( group , "NumberScenarios" , f_number_scenarios , false );
 
-  // ScenarioGenerator
+  // Get the StochasticBlock group which contains the inner Block definition
+  auto StochasticBlock_group = group.getGroup( "StochasticBlock" );
+  if( StochasticBlock_group.isNull() )
+   throw(std::logic_error( "TwoStageStochasticBlock::deserialize: "
+    "'StochasticBlock' not found." ) );
 
-  /*auto scenario_group = group.getGroup( "ScenarioGenerator" );
-  if( ! scenario_group.isNull() )
-   scenario_gen = ScenarioGenerator::new_ScenarioGenerator( scenario_group );
-  else
-   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
-                                 "'ScenarioGenerator' group not found.") );
+  // Get the Block group that contains the inner block definition
+  auto Block_group = StochasticBlock_group.getGroup( "Block" );
+  if( Block_group.isNull() )
+   throw(std::logic_error( "TwoStageStochasticBlock::deserialize: "
+    "'Block' sub-group not found in 'StochasticBlock'." ) );
 
-  scenario_gen->init_representative_pool( f_number_scenarios );*/
+  // Deserialize the StochasticBlock (with DataMappings)
+  // The new_Block function will handle all the deserialization including
+  // inner block and DataMappings
+  auto * sb = new_Block( StochasticBlock_group , this );
+  stochastic_block = dynamic_cast< StochasticBlock * >(sb);
 
-  // StochasticBlock
+  if( ! stochastic_block )
+   throw std::logic_error( "TwoStageStochasticBlock::deserialize: sub-Block is "
+    "not a StochasticBlock." );
+
+  // Save the original inner block to restore later
+  auto * original_inner_block = stochastic_block->get_inner_block();
+  if( ! original_inner_block )
+   throw std::logic_error( "TwoStageStochasticBlock::deserialize: "
+    "StochasticBlock has no inner block." );
 
   v_Block.reserve( f_number_scenarios );
 
-  for( Index i = 0 ; i < f_number_scenarios; ++i ) {
+  // Check for a ScenarioGenerator group (could be DiscreteScenarioSet or
+  // other)
+  auto DiscreteScenarioSet_group = group.getGroup( "DiscreteScenarioSet" );
+  bool has_discrete_scenarios = ! DiscreteScenarioSet_group.isNull();
 
-   auto * sb = deserialize_sub_Block( group );
+  if( has_discrete_scenarios ) {
+   // Create and deserialize the DiscreteScenarioSet
+   auto * dss = new DiscreteScenarioSet();
+   dss->deserialize( DiscreteScenarioSet_group );
+   scenario_generator = dss; // Always owned
 
-   if( auto stochastic_block = dynamic_cast< StochasticBlock * >( sb ) ) {
-
-    // Set the scenario for the current sub-Block
-    // stochastic_block->set_scenario( scenario_gen->get_current_scenario() );
-
-    if( auto ib = stochastic_block->get_inner_block() ) {
-     // Scale the objective according to the current scenario probability
-     // ib->scale( scenario_gen->get_current_scenario_probability() );
-     // Add the sub-Block to the vector of blocks
-     v_Block.push_back( ib );
-    }
-   } else
-    throw( std::logic_error(
-     "TwoStageStochasticBlock::deserialize: sub-Block is not a StochasticBlock." ) );
-
-   // Move to the next scenario
-   /*if( ! scenario_gen->next_scenario() )
-    throw( std::out_of_range( "TwoStageStochasticBlock::deserialize: "
-                              "unable to move to the next scenario." ) );*/
+   // Initialize the scenario generator
+   scenario_generator->init_representative_pool( f_number_scenarios );
   }
+
+  // Create blocks with scenarios applied using StochasticBlock as applicator
+  for( Index i = 0; i < f_number_scenarios ; ++i ) {
+   // Create a fresh copy of the inner block through deserialization
+   Block * block_copy = Block::new_Block( Block_group , this );
+
+   if( ! block_copy )
+    throw std::logic_error(
+     "TwoStageStochasticBlock::deserialize: failed to create block copy "
+     "through deserialization for scenario " +
+     std::to_string( i ) );
+
+   if( has_discrete_scenarios ) {
+    // Apply scenario data if DiscreteScenarioSet is available
+    // 1. Set the copy as inner block of StochasticBlock (don't destroy previous)
+    stochastic_block->set_inner_block( block_copy , false );
+
+    // 2. Update all DataMapping callers to point to the new block
+    const auto & data_mappings = stochastic_block->get_data_mappings();
+    for( auto & dm : data_mappings )
+     dm->set_caller( block_copy );
+
+    // 3. Apply the current scenario through StochasticBlock
+    auto scenario_data = scenario_generator->get_current_scenario();
+    // Convert span to vector for compatibility with set_data
+    std::vector< double > scenario_vec( scenario_data.begin() , scenario_data.end() );
+    stochastic_block->set_data( scenario_vec );
+
+    // Move to next scenario for next iteration
+    if( i < f_number_scenarios - 1 )
+     scenario_generator->next_scenario();
+   }
+
+   // Add the block to v_Block
+   v_Block.push_back( block_copy );
+  }
+
+  // Restore the original inner block
+  stochastic_block->set_inner_block( original_inner_block , false );
 
   // AbstractPath(s) to map both here-and-now static and dynamic variables
 
   auto static_path_group = group.getGroup( "StaticAbstractPath" );
 
   if( ! static_path_group.isNull() )
-   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars );
+   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars
+     );
   else
-   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
-                                 "group 'StaticAbstractPath' was not found." ) );
+   throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
+    "group 'StaticAbstractPath' was not found." ) );
 
   auto dynamic_path_group = group.getGroup( "DynamicAbstractPath" );
 
   if( ! dynamic_path_group.isNull() )
-   throw( std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
-                                 "cannot handle dynamic here-and-now variables "
-                                 "right now." ) );
-   // AbstractPath::vector_deserialize( dynamic_path_group , v_paths_to_dynamic_vars );
+   throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: "
+    "cannot handle dynamic here-and-now variables "
+    "right now." ) );
+  // AbstractPath::vector_deserialize( dynamic_path_group ,
+  // v_paths_to_dynamic_vars );
 
   Block::deserialize( group );
  }
 
-/** @} ---------------------------------------------------------------------*/
-/*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
-/*--------------------------------------------------------------------------*/
-/** @name Saving the data of the TwoStageStochasticBlock
- *  @{ */
+ /*--------------------------------------------------------------------------*/
+ /*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Saving the data of the TwoStageStochasticBlock
+  *  @{ */
 
  void print( std::ostream & output , char vlvl = 0 ) const override;
 
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
  /// serialize a TwoStageStochasticBlock into a netCDF::NcGroup
  /** Serialize a TwoStageStochasticBlock into a netCDF::NcGroup with the format
   * explained in the comments of the deserialize() function.
@@ -185,53 +310,62 @@ public:
 
  void serialize( netCDF::NcGroup & group ) const override;
 
-/** @} ---------------------------------------------------------------------*/
-/*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
-/*--------------------------------------------------------------------------*/
-/** @name Reading the data of the TwoStageStochasticBlock
-    @{ */
+ /*--------------------------------------------------------------------------*/
+ /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Reading the data of the TwoStageStochasticBlock
+     @{ */
 
  /// returns a sub-Block of this TwoStageStochasticBlock
- /** This function returns the sub-Block of index \p sub_block_index at the
-  * given \p stage of this TwoStageStochasticBlock. The given \p stage must
-  * be an integer between 0 and get_number_stages() - 1 and the index of the
-  * sub-Block must be an integer between 0 and get_num_sub_blocks_per_stage()
-  * 0 - 1. If any of them is an invalid index, an exception is thrown.
+ /** This function returns the sub-Block at the given scenario index.
+  * The scenario index must be between 0 and get_number_scenarios() - 1.
+  * If the index is invalid, an exception is thrown.
   *
-  * @return The sub-Block of this TwoStageStochasticBlock associated with the
-  *         given \p stage and having index \p sub_block_index. */
+  * @param scenario The index of the scenario (0 to n_scenarios-1)
+  * @return The inner Block copy for the specified scenario
+  */
+ virtual Block *get_sub_Block( Index scenario ) const;
 
- virtual StochasticBlock * get_sub_Block( Index scenario ) const;
+ /*--------------------------------------------------------------------------*/
 
-/*--------------------------------------------------------------------------*/
  /// returns the number of scenarios
+ /** This function returns the number of scenarios. */
+ Index get_number_scenarios( void ) const { return(f_number_scenarios); }
 
- Index get_number_scenarios( void ) const { return( f_number_scenarios ); }
+ /*--------------------------------------------------------------------------*/
 
-/*--------------------------------------------------------------------------*/
- /// returns the set of scenarios
+ /// sets the ScenarioGenerator for automatic scenario application
+ /** This method sets a ScenarioGenerator that will be used to automatically
+  * apply scenario data to block copies. The generator must provide scenarios
+  * compatible with the StochasticBlock's DataMappings.
+  * The TwoStageStochasticBlock takes ownership of the generator and will
+  * delete it in the destructor.
+  *
+  * @param generator Pointer to the ScenarioGenerator
+  */
+ void set_scenario_generator( ScenarioGenerator * generator );
 
- const ScenarioGenerator * get_scenario_generator( void ) const {
-  return( scenario_gen );
-  }
+ /*--------------------------------------------------------------------------*/
 
-/*--------------------------------------------------------------------------*/
- /// get the paths to static here_and_now variables
+ /// returns the first-stage (here-and-now) variables
+ /** This function returns all first-stage variables from the first scenario.
+  * These are the variables that must have the same value across all scenarios
+  * due to non-anticipativity constraints. The method requires that abstract
+  * variables have been generated first (by calling
+  * generate_abstract_variables).
+  *
+  * @return A vector containing pointers to all first-stage ColVariable objects
+  *         from scenario 0. Returns empty vector if variables haven't been
+  *         generated yet or if there are no first-stage variables.
+  *
+  * @note The returned variables are from scenario 0, but due to
+  * non-anticipativity constraints, they represent the same decisions across
+  * all scenarios.
+  */
+ std::vector< ColVariable * > get_first_stage_variables( void ) const;
 
- const std::vector< std::unique_ptr< AbstractPath > > &
-                       get_paths_to_static_here_and_now_vars( void ) const {
-  return( v_paths_to_static_vars );
-  }
+ /*--------------------------------------------------------------------------*/
 
-/*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
- /// get the paths to static here_and_now variables
-
- const std::vector< std::unique_ptr< AbstractPath > > &
-                       get_paths_to_dynamic_here_and_now_vars( void ) const {
-  return( v_paths_to_dynamic_vars );
-  }
-
-/*--------------------------------------------------------------------------*/
  /// returns the sense of the Objective of the TwoStageStochasticBlock
  /** This function returns the sense of the Objective of the
   * TwoStageStochasticBlock, which is defined to be the sense of the
@@ -244,82 +378,56 @@ public:
 
  int get_objective_sense( void ) const override;
 
-/** @} ---------------------------------------------------------------------*/
-/*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
-/*--------------------------------------------------------------------------*/
-/** @name Saving the data of the TwoStageStochasticBlock
- *  @{ */
+ /*--------------------------------------------------------------------------*/
+ /// return the paths to static here-and-now variables
+ /** Returns a const reference to the vector of AbstractPaths that point to
+  * the static (first-stage, here-and-now) variables in the scenario blocks.
+  *
+  * @return const reference to v_paths_to_static_vars
+  */
 
-/** @} ---------------------------------------------------------------------*/
-/*----------------------- Methods for handling Solution --------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Methods for handling Solution
- * @{ */
+ const std::vector< std::unique_ptr< AbstractPath > > &
+                       get_paths_to_static_here_and_now_vars( void ) const {
+  return( v_paths_to_static_vars );
+  }
 
- /// returns the current Solution of this TwoStageStochasticBlock
- /** This method must construct and return a (pointer to a) Solution object
-  * containing the current "solution state" of this TwoStageStochasticBlock.
-  * This is a TwoStageStochasticBlockSolution.
+ /*--------------------------------------------------------------------------*/
+ /// return the paths to dynamic here-and-now variables
+ /** Returns a const reference to the vector of AbstractPaths that point to
+  * the dynamic (first-stage, here-and-now) variables in the scenario blocks.
   *
-  * The parameter for deciding which kind of Solution must be returned is a
-  * single int "value", coded bitwise:
-  *
-  * - bit 0 (& 1) means "store the value of the here_and_now variables"
-  *               (only one copy, since they are supposed to be all equal)
-  *
-  * - bit 1 (& 2) means "store the solutions of each scenario" (comprising
-  *               all the copies of the here_and_now variables)
-  *
-  * - bit 2 (& 4) means "store the dual prices of the non-anticipativity
-  *               constraints" [to be implemented]
-  *
-  * This value is to be found into a Configuration cfg, which is:
-  *
-  * - if solc is not nullptr, then cfg = solc
-  *
-  * - otherwise, if f_BlockConfig is not nullptr, then cfg =
-  *   f_BlockConfig->f_solution_Configuration
-  *
-  * - otherwise, cfg == nullptr
-  *
-  * Then:
-  *
-  * - if cfg is a SimpleConfiguration< int >, then value = cfg->f_value;
-  *
-  * - if cfg is a SimpleConfiguration< std::pair< int , Configuration * > >,
-  *   then value = cfg->f_value.first
-  *
-  * - otherwise, value = 1 (only save the here_and_now variables).
-  *
-  * In case value & 2 is nonzero, the Solution objects for each scenario in
-  * principle need a Configuration. This is supported by the case where
-  * cfg is a SimpleConfiguration< std::pair< int , Configuration * > >, with
-  * the Configuration obviously being (pointed by) cfg->f_value.second. In
-  * all other cases the Configuration will be nullptr (the default one).
-  * This Configuration is passed to the TwoStageStochasticBlockSolution via
-  * the set_inner_Config() method, which also allows to set the format of
-  * that Solution (see the comments). */
+  * @return const reference to v_paths_to_dynamic_vars
+  */
+
+ const std::vector< std::unique_ptr< AbstractPath > > &
+                       get_paths_to_dynamic_here_and_now_vars( void ) const {
+  return( v_paths_to_dynamic_vars );
+  }
+
+ /*--------------------------------------------------------------------------*/
+ /*----------------------- Methods for handling Solution --------------------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Methods for handling Solution
+  *  @{ */
 
  Solution * get_Solution( Configuration * solc = nullptr ,
-                          bool emptys = true ) override;
+                          bool emptys = false ) override;
 
-/** @} ---------------------------------------------------------------------*/
-/*-------------------- Methods for handling Modification -------------------*/
-/*--------------------------------------------------------------------------*/
-/** @name Methods for handling Modification
- *  @{ */
+ /** @} ---------------------------------------------------------------------*/
+ /*-------------------- Methods for handling Modification -------------------*/
+ /*--------------------------------------------------------------------------*/
+ /** @name Methods for handling Modification
+  *  @{ */
 
  void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
 
-/** @} ---------------------------------------------------------------------*/
-/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
-/*--------------------------------------------------------------------------*/
-
-protected:
-
-/*--------------------------------------------------------------------------*/
-/*-------------------------- PROTECTED METHODS -----------------------------*/
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+ /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+ /*--------------------------------------------------------------------------*/
+ protected:
+ /*--------------------------------------------------------------------------*/
+ /*-------------------------- PROTECTED METHODS -----------------------------*/
+ /*--------------------------------------------------------------------------*/
 
  /// states that the Variable have been generated
  void set_variables_generated( void ) { AR |= HasVar; }
@@ -331,23 +439,28 @@ protected:
  void set_objective_generated( void ) { AR |= HasObj; }
 
  /// indicates whether the Variable have been generated
- bool variables_generated( void ) const { return( AR & HasVar ); }
+ bool variables_generated( void ) const { return(AR & HasVar); }
 
  /// indicates whether the Constraint have been generated
- bool constraints_generated( void ) const { return( AR & HasCst ); }
+ bool constraints_generated( void ) const { return(AR & HasCst); }
 
  /// indicates whether the Objective has been generated
- bool objective_generated( void ) const { return( AR & HasObj ); }
+ bool objective_generated( void ) const { return(AR & HasObj); }
 
-/*--------------------------------------------------------------------------*/
-/*---------------------------- PROTECTED FIELDS  ---------------------------*/
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+ /*---------------------------- PROTECTED FIELDS  ---------------------------*/
+ /*--------------------------------------------------------------------------*/
 
-/*---------------------------------- data ----------------------------------*/
+ /*---------------------------------- data ----------------------------------*/
 
- Index f_number_scenarios{};         ///< The number of scenarios
+ Index f_number_scenarios{};
+ ///< The number of scenarios
 
- ScenarioGenerator * scenario_gen;   ///< The scenario generator
+ StochasticBlock * stochastic_block = nullptr;
+ ///< The StochasticBlock containing DataMappings for applying scenario data
+
+ ScenarioGenerator * scenario_generator = nullptr;
+ ///< The ScenarioGenerator for automatic scenario application (owned)
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_static_vars;
  ///< The AbstractPath to the affected here-and-now static ColVariable
@@ -355,20 +468,53 @@ protected:
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_dynamic_vars;
  ///< The AbstractPath to the affected here-and-now dynamic ColVariable
 
-/*------------------------------- constraints ------------------------------*/
+ /*------------------------------- constraints ------------------------------*/
 
  ///< the here-and-now equality constraints
  boost::multi_array< std::vector< FRowConstraint > , 2 > here_and_now_const;
 
-/*--------------------------------------------------------------------------*/
-/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+ /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+ /*--------------------------------------------------------------------------*/
+ private:
+ /*--------------------------------------------------------------------------*/
+ /*---------------------------- PRIVATE METHODS -----------------------------*/
+ /*--------------------------------------------------------------------------*/
 
-private:
+ /*--------------------------------------------------------------------------*/
+ /// helper method to scale a single scenario's objective by a weight
+ /** Scales the objective function of a scenario block by the given weight.
+  *
+  * This method checks if the block's objective is a FRealObjective with a
+  * LinearFunction, and if so, scales all coefficients and the constant term
+  * by the provided weight.
+  *
+  * @param scenario_block the Block whose objective to scale
+  * @param weight the scaling factor (typically a probability in [0,1])
+  */
+ void scale_scenario_objective( Block * scenario_block , double weight );
 
-/*--------------------------------------------------------------------------*/
-/*---------------------------- PRIVATE FIELDS ------------------------------*/
-/*--------------------------------------------------------------------------*/
+ /*--------------------------------------------------------------------------*/
+
+//  /// apply scenarios to all blocks using the ScenarioGenerator
+//  /** This private helper method applies scenario data to all block copies
+//   * using the configured ScenarioGenerator. It is called during deserialization
+//   * or when blocks are created if a generator is available.
+//   *
+//   * @param issuePMod Indicates if and how a "physical" Modification should
+//   * be issued.
+//   * @param issueAMod Indicates if and how an "abstract" Modification should
+//   * be issued.
+//   *
+//   * @throw std::logic_error If no ScenarioGenerator is configured
+//   */
+//  void apply_scenarios_from_generator(
+//    c_ModParam issuePMod = eNoBlck ,
+//    c_ModParam issueAMod = eNoBlck );
+
+ /*--------------------------------------------------------------------------*/
+ /*---------------------------- PRIVATE FIELDS ------------------------------*/
+ /*--------------------------------------------------------------------------*/
 
  ///< bit-wise coded: what abstract is there
  unsigned char AR{};
@@ -382,61 +528,14 @@ private:
  static constexpr unsigned char HasObj = 4;
  ///< third bit of AR == 1 if the Objective has been constructed
 
-  SMSpp_insert_in_factory_h;
+ SMSpp_insert_in_factory_h;
+
+ }; // end( class TwoStageStochasticBlock )
 
 /*--------------------------------------------------------------------------*/
-/*---------------------------- PRIVATE METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
-
- /// deserializes the i-th sub-Block out of the given group
- /** This auxiliary function deserializes the \p i-th sub-Block out of the
-  * given \p group.
-  *
-  * @param group The netCDF::NcGroup containing the description of the
-  *        sub-Block.
-  *
-  * @param i The index of the sub-Block to be deserialized.
-  *
-  * @return A pointer to the Block that was deserialized.
-  */
- Block * deserialize_sub_Block( const netCDF::NcGroup & group ) {
-  std::string sub_group_name = "StochasticBlock";
-  auto StochasticBlock_group = group.getGroup( sub_group_name );
-
-  if( StochasticBlock_group.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
-                            "'StochasticBlock' not found." ) );
-
-  auto type = StochasticBlock_group.getAtt( "type" );
-  if( type.isNull() )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                            "'type' of '" + sub_group_name +
-                            "' must be present." ) );
-
-  std::string type_name;
-  type.getValues( type_name );
-  if( type_name != "StochasticBlock" )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: attribute "
-                            "'type' of '" + sub_group_name +
-                            "' must contain 'StochasticBlock'." ) );
-
-  auto StochasticBlock_block = new_Block( StochasticBlock_group , this );
-  if( ! StochasticBlock_block )
-   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: sub-group "
-                            "'" + sub_group_name +
-                            "' has an invalid or incomplete description." ) );
-
-  return( StochasticBlock_block );
- }
-
-};   // end( class TwoStageStochasticBlock )
-
+/*---------------- CLASS TwoStageStochasticBlockSolution -------------------*/
 /*--------------------------------------------------------------------------*/
-/*----------------- CLASS TwoStageStochasticBlockSolution ------------------*/
-/*--------------------------------------------------------------------------*/
-/*--------------------------- GENERAL NOTES --------------------------------*/
-/*--------------------------------------------------------------------------*/
-/// a Solution of a TwoStageStochasticBlock
 /** The TwoStageStochasticBlockSolution class derives from Solution and
  * implements it for TwoStageStochasticBlock. As such it may contain any of:
  *
@@ -477,7 +576,7 @@ class TwoStageStochasticBlockSolution : public Solution
 
  ~TwoStageStochasticBlockSolution() {
   for( auto si : v_scenario_solutions )
-   delete( si );
+   delete si;
   }
 
 /*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution --*/
@@ -518,7 +617,7 @@ class TwoStageStochasticBlockSolution : public Solution
   *   variable is optional, but it must exist if "HereAndNow" exists.
   *
   * - The dimension "NumberScenarios" containing the number of scenarios. The
-  *   dimension is mandatory if either "ScenarioSolution_0" of 
+  *   dimension is mandatory if either "ScenarioSolution_0" of
   *   "ScenarioSolutionPrefix" (see below) are there and optional otherwise.
   *
   * - If "NumberScenarios" is defined, optional Solution data for the
@@ -551,7 +650,7 @@ class TwoStageStochasticBlockSolution : public Solution
   *   corresponding to the non-anticipaticity constraint regarding the
   *   here_and_now variable i (with the same ordering as that of "HereAndNow")
   *   for scenario s. There are two forms of these constraints, so the actual
-  *   values will depend on which form was chosen when the 
+  *   values will depend on which form was chosen when the
   *   TwoStageStochasticBlock was built, but in alla cases notice that there
   *   are NumberScenarios - 1 non-anticipaticity constraints regarding each
   *   variable. The variable is optional. */
@@ -575,14 +674,14 @@ class TwoStageStochasticBlockSolution : public Solution
   * then means that in deserialize() the Solution to the scenario Block is
   * written into files with that as a prefix rather than as sub-groups; see
   * the comments to serialize(). */
- 
+
  void set_inner_Config( Configuration * cfg ) {
   using SCPSCp = SimpleConfiguration< std::pair< std::string ,
                                                  Configuration * > >;
   if( auto sscfg = dynamic_cast< SCPSCp * >( cfg ) ) {
    f_scenario_solution_fprefix = sscfg->f_value.first;
    cfg = sscfg->f_value.second;
-   }							   
+   }
 
   f_inner_Config = cfg;
   }
@@ -608,7 +707,7 @@ class TwoStageStochasticBlockSolution : public Solution
 
  Configuration * f_inner_Config;
  ///< the Configuration for scenario Solution
- 
+
  std::vector< Solution * > v_scenario_solutions;
  ///< solutions for each scenario
 
@@ -631,11 +730,11 @@ class TwoStageStochasticBlockSolution : public Solution
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 
- }  // end( namespace SMSpp_di_unipi_it )
+} // namespace SMSpp_di_unipi_it
 
 /*--------------------------------------------------------------------------*/
 
-#endif  /* TwoStageStochasticBlock.h included */
+#endif /* TwoStageStochasticBlock.h included */
 
 /*--------------------------------------------------------------------------*/
 /*----------------- End File TwoStageStochasticBlock.h ---------------------*/
