@@ -220,23 +220,20 @@ namespace SMSpp_di_unipi_it {
   // Check for a ScenarioGenerator group (could be DiscreteScenarioSet or
   // other)
   auto DiscreteScenarioSet_group = group.getGroup( "DiscreteScenarioSet" );
-  if( ! DiscreteScenarioSet_group.isNull( )) {
+  bool has_discrete_scenarios = ! DiscreteScenarioSet_group.isNull( );
+
+  if( has_discrete_scenarios ) {
    // Create and deserialize the DiscreteScenarioSet
    auto * dss = new DiscreteScenarioSet( );
    dss->deserialize( DiscreteScenarioSet_group );
    scenario_generator = dss; // Always owned
-  }
-  else {
-   throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
-    "group 'DiscreteScenarioSet' was not found." ));
-  }
 
-  // Initialize the scenario generator
-  scenario_generator->init_representative_pool( f_number_scenarios );
+   // Initialize the scenario generator
+   scenario_generator->init_representative_pool( f_number_scenarios );
+  }
 
   // Create blocks with scenarios applied using StochasticBlock as applicator
-  Index i = 0;
-  do {
+  for( Index i = 0; i < f_number_scenarios; ++i ) {
    // Create a fresh copy of the inner block through deserialization
    Block * block_copy = Block::new_Block( Block_group , this );
 
@@ -246,28 +243,31 @@ namespace SMSpp_di_unipi_it {
      "through deserialization for scenario " +
      std::to_string( i ));
 
-   // For all scenarios (including first):
-   // 1. Set the copy as inner block of StochasticBlock (don't destroy
-   // previous)
-   stochastic_block->set_inner_block( block_copy , false );
+   if( has_discrete_scenarios ) {
+    // Apply scenario data if DiscreteScenarioSet is available
+    // 1. Set the copy as inner block of StochasticBlock (don't destroy previous)
+    stochastic_block->set_inner_block( block_copy , false );
 
-   // 2. Update all DataMapping callers to point to the new block
-   const auto & data_mappings = stochastic_block->get_data_mappings( );
-   for(auto & dm : data_mappings) {
-    dm->set_caller( block_copy );
+    // 2. Update all DataMapping callers to point to the new block
+    const auto & data_mappings = stochastic_block->get_data_mappings( );
+    for(auto & dm : data_mappings) {
+     dm->set_caller( block_copy );
+    }
+
+    // 3. Apply the current scenario through StochasticBlock
+    auto scenario_data = scenario_generator->get_current_scenario( );
+    // Convert span to vector for compatibility with set_data
+    std::vector< double > scenario_vec( scenario_data.begin( ) , scenario_data.end( ));
+    stochastic_block->set_data( scenario_vec );
+
+    // Move to next scenario for next iteration
+    if( i < f_number_scenarios - 1 )
+     scenario_generator->next_scenario( );
    }
 
-   // 3. Apply the current scenario through StochasticBlock
-   auto scenario_data = scenario_generator->get_current_scenario( );
-   // Convert span to vector for compatibility with set_data
-   std::vector< double > scenario_vec( scenario_data.begin( ) , scenario_data.
-     end( ));
-   stochastic_block->set_data( scenario_vec );
-
-   // 4. Add the modified block to v_Block
+   // Add the block to v_Block
    v_Block.push_back( block_copy );
-   ++i;
-  } while( i < f_number_scenarios && scenario_generator->next_scenario( ));
+  }
 
   // Restore the original inner block
   stochastic_block->set_inner_block( original_inner_block , false );
