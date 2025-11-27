@@ -5,11 +5,15 @@
  * Header file of TwoStageStochasticBlock, a class for representing a two-stage
  * stochastic programming problem.
  *
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Donato Meoli
+ * \copyright &copy; by Antonio Frangioni and Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*----------------------------- DEFINITIONS --------------------------------*/
@@ -259,7 +263,7 @@ namespace SMSpp_di_unipi_it {
     // 3. Apply the current scenario through StochasticBlock
     auto scenario_data = scenario_generator->get_current_scenario();
     // Convert span to vector for compatibility with set_data
-    std::vector< double > scenario_vec( scenario_data.begin() , scenario_data.end() );
+    std::vector scenario_vec( scenario_data.begin() , scenario_data.end() );
     stochastic_block->set_data( scenario_vec );
 
     // Move to next scenario for next iteration

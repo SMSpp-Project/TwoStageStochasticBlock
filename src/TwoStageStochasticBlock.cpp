@@ -4,11 +4,16 @@
 /** @file
  * Implementation of the TwoStageStochasticBlock class.
  *
+ *
+ * \author Antonio Frangioni \n
+ *         Dipartimento di Informatica \n
+ *         Universita' di Pisa \n
+ *
  * \author Donato Meoli \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
  *
- * \copyright &copy; by Donato Meoli
+ * \copyright &copy; by Antonio Frangioni and Donato Meoli
  */
 /*--------------------------------------------------------------------------*/
 /*---------------------------- IMPLEMENTATION ------------------------------*/
