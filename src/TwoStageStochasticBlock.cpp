@@ -17,10 +17,12 @@
 /*--------------------------------------------------------------------------*/
 
 #include "TwoStageStochasticBlock.h"
+
 #include "DataMapping.h"
+
 #include "FRealObjective.h"
+
 #include "LinearFunction.h"
-#include <iostream>
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -185,7 +187,7 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc ) {
  if( scenario_generator && ( ! v_Block.empty() ) ) {
   // Check if pool is already initialized to avoid re-initialization overhead
   if( scenario_generator->is_pool_initialized() ) {
-   // Reset to beginning of existing pool
+   // Reset to the beginning of existing pool
    scenario_generator->reset_pool();
   }
   else {
@@ -221,9 +223,8 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc ) {
 /*-------------------- Methods for handling Modification -------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::add_Modification(
-  sp_Mod mod ,
-  Observer::ChnlName chnl ) {
+void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
+                                                Observer::ChnlName chnl ) {
  // TODO
  if( anyone_there() )
   Block::add_Modification( std::make_shared< NBModification >( this ) , chnl );
@@ -278,9 +279,8 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
   auto * first_var = path->get_element< ColVariable >( scenario_0_block );
 
   // Add all variables from this path to our result vector
-  for( Index j = 0 ; j < num_vars ; ++j ) {
+  for( Index j = 0 ; j < num_vars ; ++j )
    first_stage_vars.push_back( first_var + j );
-  }
  }
 
  return( first_stage_vars );

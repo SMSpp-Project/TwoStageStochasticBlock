@@ -91,7 +91,8 @@ namespace SMSpp_di_unipi_it {
   * @param father A pointer to the father Block of this
   * TwoStageStochasticBlock.
   */
- TwoStageStochasticBlock( Block * father = nullptr ) : Block( father ) {}
+ explicit TwoStageStochasticBlock( Block * father = nullptr )
+  : Block( father ) {}
 
  /*--------------------------------------------------------------------------*/
 
@@ -233,7 +234,7 @@ namespace SMSpp_di_unipi_it {
   // Create blocks with scenarios applied using StochasticBlock as applicator
   for( Index i = 0; i < f_number_scenarios ; ++i ) {
    // Create a fresh copy of the inner block through deserialization
-   Block * block_copy = Block::new_Block( Block_group , this );
+   Block * block_copy = new_Block( Block_group , this );
 
    if( ! block_copy )
     throw std::logic_error(
@@ -274,8 +275,7 @@ namespace SMSpp_di_unipi_it {
   auto static_path_group = group.getGroup( "StaticAbstractPath" );
 
   if( ! static_path_group.isNull() )
-   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars
-     );
+   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars );
   else
    throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
     "group 'StaticAbstractPath' was not found." ) );
@@ -439,13 +439,13 @@ namespace SMSpp_di_unipi_it {
  void set_objective_generated( void ) { AR |= HasObj; }
 
  /// indicates whether the Variable have been generated
- bool variables_generated( void ) const { return(AR & HasVar); }
+ bool variables_generated( void ) const { return( AR & HasVar ); }
 
  /// indicates whether the Constraint have been generated
- bool constraints_generated( void ) const { return(AR & HasCst); }
+ bool constraints_generated( void ) const { return( AR & HasCst ); }
 
  /// indicates whether the Objective has been generated
- bool objective_generated( void ) const { return(AR & HasObj); }
+ bool objective_generated( void ) const { return( AR & HasObj ); }
 
  /*--------------------------------------------------------------------------*/
  /*---------------------------- PROTECTED FIELDS  ---------------------------*/
@@ -638,7 +638,7 @@ class TwoStageStochasticBlockSolution : public Solution
   *     "NumberScenarios", must exist.
   *
   *   During deserialize(), the first form is checked first, if it does not
-  *   exist the second one is checked, if none exist, no Solution data is
+  *   exist the second one is checked, if none exist no Solution data is
   *   present. During serialize(), the format is chosen by the current value
   *   of the f_scenario_solution_fprefix field (see set_inner_Config()): if
   *   it is empty() then the second (group-based) format is used, otherwise
