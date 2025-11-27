@@ -336,7 +336,7 @@ namespace SMSpp_di_unipi_it {
 
  /// returns the number of scenarios
  /** This function returns the number of scenarios. */
- Index get_number_scenarios( void ) const { return(f_number_scenarios); }
+ Index get_number_scenarios( void ) const { return( f_number_scenarios ); }
 
 /*--------------------------------------------------------------------------*/
 

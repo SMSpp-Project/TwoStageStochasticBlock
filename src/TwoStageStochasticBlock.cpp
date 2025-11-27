@@ -237,7 +237,7 @@ void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
 int TwoStageStochasticBlock::get_objective_sense() const {
  try {
   auto sub_Block = get_sub_Block( 0 );
-  if( sub_Block ) return(sub_Block->get_objective_sense() );
+  if( sub_Block ) return( sub_Block->get_objective_sense() );
  } catch( ... ) {}
  return( Objective::eUndef );
 }
@@ -249,7 +249,7 @@ Block *TwoStageStochasticBlock::get_sub_Block( Index scenario ) const {
   throw(std::invalid_argument(
    "TwoStageStochasticBlock::get_sub_Block: invalid scenario " +
    std::to_string( scenario ) ) );
- return(v_Block[ scenario ]);
+ return( v_Block[ scenario ] );
 }
 
 /*--------------------------------------------------------------------------*/
