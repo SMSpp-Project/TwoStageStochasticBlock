@@ -41,7 +41,7 @@ int main( int argc , char ** argv ) {
   delete tssb1;
  } else {
   cout << " FAILED" << endl;
-  return 1;
+  return( 1 );
  }
 
  // Test 2: Factory registration check
@@ -54,18 +54,18 @@ int main( int argc , char ** argv ) {
    delete tssb2;
   } else {
    cout << " FAILED: wrong type" << endl;
-   return 1;
+   return( 1 );
   }
  } catch( const exception & e ) {
   cout << " FAILED: " << e.what() << endl;
-  return 1;
+  return( 1 );
  }
 
  // Test 3: Load from nc4 file if provided
  if( argc > 1 ) {
-  cout << "Test 3: Loading from " << argv[1] << "...";
+  cout << "Test 3: Loading from " << argv[ 1 ] << "...";
   try {
-   netCDF::NcFile dataFile( argv[1] , netCDF::NcFile::read );
+   netCDF::NcFile dataFile( argv[ 1 ] , netCDF::NcFile::read );
    auto * block = Block::new_Block( dataFile , nullptr );
    if( block ) {
     auto * tssb3 = dynamic_cast< TwoStageStochasticBlock * >( block );
@@ -77,16 +77,16 @@ int main( int argc , char ** argv ) {
     delete block;
    } else {
     cout << " FAILED: new_Block returned nullptr" << endl;
-    return 1;
+    return( 1 );
    }
   } catch( const exception & e ) {
    cout << " FAILED: " << e.what() << endl;
-   return 1;
+   return( 1 );
   }
  }
 
  cout << endl << "=== All tests passed ===" << endl;
- return 0;
+ return( 0 );
 }
 
 /*--------------------------------------------------------------------------*/

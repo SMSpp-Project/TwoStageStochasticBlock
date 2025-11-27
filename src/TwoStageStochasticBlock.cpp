@@ -46,11 +46,11 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
  Constraint::clear( here_and_now_const );
 
  for( auto & block : v_Block )
-  delete block;
+  delete( block );
  v_Block.clear();
 
- delete scenario_generator;
- delete stochastic_block;
+ delete( scenario_generator );
+ delete( stochastic_block );
 }
 
 /*--------------------------------------------------------------------------*/

@@ -574,9 +574,9 @@ class TwoStageStochasticBlockSolution : public Solution
 /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -*/
  /// destructor
 
- ~TwoStageStochasticBlockSolution() {
+ ~TwoStageStochasticBlockSolution() override {
   for( auto si : v_scenario_solutions )
-   delete si;
+   delete( si );
   }
 
 /*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution --*/
@@ -638,7 +638,7 @@ class TwoStageStochasticBlockSolution : public Solution
   *     "NumberScenarios", must exist.
   *
   *   During deserialize(), the first form is checked first, if it does not
-  *   exist the second one is checked, if none exist no Solution data is
+  *   exist the second one is checked, if none exist, no Solution data is
   *   present. During serialize(), the format is chosen by the current value
   *   of the f_scenario_solution_fprefix field (see set_inner_Config()): if
   *   it is empty() then the second (group-based) format is used, otherwise
