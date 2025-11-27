@@ -73,13 +73,16 @@ namespace SMSpp_di_unipi_it {
  */
 
  class TwoStageStochasticBlock : public Block {
- /*--------------------------------------------------------------------------*/
- /*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
- /*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
+/*----------------------- PUBLIC PART OF THE CLASS -------------------------*/
+/*--------------------------------------------------------------------------*/
+
  public:
- /*--------------------------------------------------------------------------*/
- /*--------- CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlock -----------*/
- /*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
+/*--------- CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlock -----------*/
+/*--------------------------------------------------------------------------*/
  /** @name Constructing and destructing TwoStageStochasticBlock
   *  @{ */
 
@@ -89,12 +92,12 @@ namespace SMSpp_di_unipi_it {
   * used as the void constructor.
   *
   * @param father A pointer to the father Block of this
-  * TwoStageStochasticBlock.
+  *               TwoStageStochasticBlock.
   */
  explicit TwoStageStochasticBlock( Block * father = nullptr )
   : Block( father ) {}
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// constructor with ScenarioGenerator
  /** Constructs a TwoStageStochasticBlock with the given \p father Block and
@@ -104,20 +107,21 @@ namespace SMSpp_di_unipi_it {
   * delete it in the destructor.
   *
   * @param father A pointer to the father Block of this
-  * TwoStageStochasticBlock.
+  *               TwoStageStochasticBlock.
+  *
   * @param generator A pointer to the ScenarioGenerator for automatic scenario
-  * application.
+  *                  application.
   */
  TwoStageStochasticBlock( Block * father , ScenarioGenerator * generator )
   : Block( father ) , scenario_generator( generator ) {}
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// destructor of TwoStageStochasticBlock
 
  virtual ~TwoStageStochasticBlock() override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// generate the static variables of the TwoStageStochasticBlock
  /** This method generates the abstract variables by calling
   * generate_abstract_variables() on all sub-blocks (scenario blocks). The
@@ -129,12 +133,12 @@ namespace SMSpp_di_unipi_it {
 
  void generate_abstract_variables( Configuration * stvv = nullptr ) override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// generate the static constraint of the TwoStageStochasticBlock
 
  void generate_abstract_constraints( Configuration * stcc = nullptr ) override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// generate the objective of the TwoStageStochasticBlock
  /** Generates the objective function for the two-stage stochastic block.
   *
@@ -150,7 +154,7 @@ namespace SMSpp_di_unipi_it {
   */
  void generate_objective( Configuration * objc = nullptr ) override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// loads TwoStageStochasticBlock out of an istream - not implemented yet
 
  void load( std::istream & input , char frmt = 0 ) override {
@@ -158,7 +162,7 @@ namespace SMSpp_di_unipi_it {
    "TwoStageStochasticBlock::load: method not implemented yet." ) );
  }
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// de-serialize a TwoStageStochasticBlock out of netCDF::NcGroup
  /** The method takes a netCDF::NcGroup supposedly containing all the
   * information required to de-serialize the TwoStageStochasticBlock. Besides
@@ -292,27 +296,28 @@ namespace SMSpp_di_unipi_it {
   Block::deserialize( group );
  }
 
- /*--------------------------------------------------------------------------*/
- /*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*-------- METHODS FOR Saving THE DATA OF THE TwoStageStochasticBlock ------*/
+/*--------------------------------------------------------------------------*/
  /** @name Saving the data of the TwoStageStochasticBlock
   *  @{ */
 
  void print( std::ostream & output , char vlvl = 0 ) const override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// serialize a TwoStageStochasticBlock into a netCDF::NcGroup
  /** Serialize a TwoStageStochasticBlock into a netCDF::NcGroup with the format
   * explained in the comments of the deserialize() function.
   *
   * @param group The NcGroup in which this TwoStageStochasticBlock will be
-  *              serialized. */
+  *              serialized.
+  */
 
  void serialize( netCDF::NcGroup & group ) const override;
 
- /*--------------------------------------------------------------------------*/
- /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
+/*--------------------------------------------------------------------------*/
  /** @name Reading the data of the TwoStageStochasticBlock
      @{ */
 
@@ -322,17 +327,18 @@ namespace SMSpp_di_unipi_it {
   * If the index is invalid, an exception is thrown.
   *
   * @param scenario The index of the scenario (0 to n_scenarios-1)
+  *
   * @return The inner Block copy for the specified scenario
   */
  virtual Block *get_sub_Block( Index scenario ) const;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// returns the number of scenarios
  /** This function returns the number of scenarios. */
  Index get_number_scenarios( void ) const { return(f_number_scenarios); }
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// sets the ScenarioGenerator for automatic scenario application
  /** This method sets a ScenarioGenerator that will be used to automatically
@@ -345,7 +351,7 @@ namespace SMSpp_di_unipi_it {
   */
  void set_scenario_generator( ScenarioGenerator * generator );
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// returns the first-stage (here-and-now) variables
  /** This function returns all first-stage variables from the first scenario.
@@ -364,7 +370,7 @@ namespace SMSpp_di_unipi_it {
   */
  std::vector< ColVariable * > get_first_stage_variables( void ) const;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// returns the sense of the Objective of the TwoStageStochasticBlock
  /** This function returns the sense of the Objective of the
@@ -378,7 +384,7 @@ namespace SMSpp_di_unipi_it {
 
  int get_objective_sense( void ) const override;
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// return the paths to static here-and-now variables
  /** Returns a const reference to the vector of AbstractPaths that point to
   * the static (first-stage, here-and-now) variables in the scenario blocks.
@@ -391,7 +397,7 @@ namespace SMSpp_di_unipi_it {
   return( v_paths_to_static_vars );
   }
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
  /// return the paths to dynamic here-and-now variables
  /** Returns a const reference to the vector of AbstractPaths that point to
   * the dynamic (first-stage, here-and-now) variables in the scenario blocks.
@@ -404,30 +410,32 @@ namespace SMSpp_di_unipi_it {
   return( v_paths_to_dynamic_vars );
   }
 
- /*--------------------------------------------------------------------------*/
- /*----------------------- Methods for handling Solution --------------------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*----------------------- Methods for handling Solution --------------------*/
+/*--------------------------------------------------------------------------*/
  /** @name Methods for handling Solution
   *  @{ */
 
  Solution * get_Solution( Configuration * solc = nullptr ,
                           bool emptys = false ) override;
 
- /** @} ---------------------------------------------------------------------*/
- /*-------------------- Methods for handling Modification -------------------*/
- /*--------------------------------------------------------------------------*/
+/** @} ---------------------------------------------------------------------*/
+/*-------------------- Methods for handling Modification -------------------*/
+/*--------------------------------------------------------------------------*/
  /** @name Methods for handling Modification
   *  @{ */
 
  void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
 
- /*--------------------------------------------------------------------------*/
- /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
+/*--------------------------------------------------------------------------*/
+
  protected:
- /*--------------------------------------------------------------------------*/
- /*-------------------------- PROTECTED METHODS -----------------------------*/
- /*--------------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------------*/
+/*-------------------------- PROTECTED METHODS -----------------------------*/
+/*--------------------------------------------------------------------------*/
 
  /// states that the Variable have been generated
  void set_variables_generated( void ) { AR |= HasVar; }
@@ -447,11 +455,11 @@ namespace SMSpp_di_unipi_it {
  /// indicates whether the Objective has been generated
  bool objective_generated( void ) const { return( AR & HasObj ); }
 
- /*--------------------------------------------------------------------------*/
- /*---------------------------- PROTECTED FIELDS  ---------------------------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PROTECTED FIELDS  ---------------------------*/
+/*--------------------------------------------------------------------------*/
 
- /*---------------------------------- data ----------------------------------*/
+/*---------------------------------- data ----------------------------------*/
 
  Index f_number_scenarios{};
  ///< The number of scenarios
@@ -468,20 +476,21 @@ namespace SMSpp_di_unipi_it {
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_dynamic_vars;
  ///< The AbstractPath to the affected here-and-now dynamic ColVariable
 
- /*------------------------------- constraints ------------------------------*/
+/*------------------------------- constraints ------------------------------*/
 
  ///< the here-and-now equality constraints
  boost::multi_array< std::vector< FRowConstraint > , 2 > here_and_now_const;
 
- /*--------------------------------------------------------------------------*/
- /*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
- /*--------------------------------------------------------------------------*/
- private:
- /*--------------------------------------------------------------------------*/
- /*---------------------------- PRIVATE METHODS -----------------------------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*--------------------- PRIVATE PART OF THE CLASS --------------------------*/
+/*--------------------------------------------------------------------------*/
 
- /*--------------------------------------------------------------------------*/
+ private:
+
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PRIVATE METHODS -----------------------------*/
+/*--------------------------------------------------------------------------*/
+
  /// helper method to scale a single scenario's objective by a weight
  /** Scales the objective function of a scenario block by the given weight.
   *
@@ -490,11 +499,12 @@ namespace SMSpp_di_unipi_it {
   * by the provided weight.
   *
   * @param scenario_block the Block whose objective to scale
+  *
   * @param weight the scaling factor (typically a probability in [0,1])
   */
  void scale_scenario_objective( Block * scenario_block , double weight );
 
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
 
 //  /// apply scenarios to all blocks using the ScenarioGenerator
 //  /** This private helper method applies scenario data to all block copies
@@ -512,9 +522,9 @@ namespace SMSpp_di_unipi_it {
 //    c_ModParam issuePMod = eNoBlck ,
 //    c_ModParam issueAMod = eNoBlck );
 
- /*--------------------------------------------------------------------------*/
- /*---------------------------- PRIVATE FIELDS ------------------------------*/
- /*--------------------------------------------------------------------------*/
+/*--------------------------------------------------------------------------*/
+/*---------------------------- PRIVATE FIELDS ------------------------------*/
+/*--------------------------------------------------------------------------*/
 
  ///< bit-wise coded: what abstract is there
  unsigned char AR{};
@@ -730,7 +740,7 @@ class TwoStageStochasticBlockSolution : public Solution
 /*--------------------------------------------------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-} // namespace SMSpp_di_unipi_it
+}  // end( namespace SMSpp_di_unipi_it )
 
 /*--------------------------------------------------------------------------*/
 
