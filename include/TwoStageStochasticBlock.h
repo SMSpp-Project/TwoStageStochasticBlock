@@ -417,8 +417,49 @@ namespace SMSpp_di_unipi_it {
 /*--------------------------------------------------------------------------*/
 /*----------------------- Methods for handling Solution --------------------*/
 /*--------------------------------------------------------------------------*/
- /** @name Methods for handling Solution
-  *  @{ */
+ /// returns a TwoStageStochasticBlockSolution with the current solution
+ /** Returns a TwoStageStochasticBlockSolution representing the current
+  * solution status of this TwoStageStochasticBlock. What kind of solution
+  * is saved depends on the integer value ws, obtained as follows:
+  *
+  * - if solc != nullptr and it is a SimpleConfiguration< int >, then
+  *   ws == solc->f_value:
+  *
+  * - if solc == nullptr, f_BlockConfig != nullptr,
+  *   f_BlockConfig->f_solution_Configuration != nullptr and it
+  *   is a SimpleConfiguration< int >, ws is its f_value
+  *
+  * - if solc == nullptr, f_BlockConfig != nullptr,
+  *   f_BlockConfig->f_solution_Configuration != nullptr and it
+  *   is a SimpleConfiguration< std::pair< int , Configuration * >, ws is
+  *   its f_value->first
+  *
+  * - otherwise ws is 3 (save here-and-now variables and and the individual
+  *   scenarios Solution)
+  *
+  * The encoding of ws is bit-wise:
+  *
+  *   = bit 0 (& 1): means "save the here-and-now variables"
+  *
+  *   = bit 1 (& 2): means "save the individual scenarios Solution"
+  *
+  *   = bit 2 (& 4): means "save the dual variables of the non-anticipativity
+  *                  constraints"
+  *
+  * If a SimpleConfiguration< int > is used, then all the subsequent bits
+  * are passed as a the int value in a SimpleConfiguration< int > that is
+  * passed as Configuration to get_Solution() when it is called to read() the
+  * Solution of the individual scenario; if such values are 0, no 
+  * Configuration is passed (the default is used). If a 
+  * SimpleConfiguration< std::pair< int , Configuration * > is used, then its
+  * f_value->second is passed to the inner get_Solution() instead.
+  *
+  * Note that, although the method clearly returns a
+  * TwoStageStochasticBlockSolution, formally the return type is Solution *.
+  * This is because it is not possible to forward declare
+  * TwoStageStochasticBlockSolution as a derived class from Solution, nor to
+  * define TwoStageStochasticBlockSolution before TwoStageStochasticBlock
+  * because the former uses some type information declared in the latter. */
 
  Solution * get_Solution( Configuration * solc = nullptr ,
                           bool emptys = false ) override;

@@ -298,14 +298,18 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
 Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
 						  bool emptys )
 {
- Index wsol = 1;
+ Index wsol = 3;
  auto * sol = new TwoStageStochasticBlockSolution;
 
  if( ( ! solc ) && f_BlockConfig )
   solc = f_BlockConfig->f_solution_Configuration;
 
- if( auto config = dynamic_cast< SimpleConfiguration< int > * >( solc ) )
-  wsol = config->f_value;
+ if( auto config = dynamic_cast< SimpleConfiguration< int > * >( solc ) ) {
+  wsol = config->f_value & 7;        // only save the first three bits
+  int wssol = config->f_value >> 3;  // shift right clearing them
+  if( wssol )
+   sol->set_inner_Config( new SimpleConfiguration< int >( wssol ) );
+  }
  else
   if( auto config =
       dynamic_cast< SimpleConfiguration< std::pair< int , Configuration * >
