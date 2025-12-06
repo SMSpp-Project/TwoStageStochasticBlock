@@ -2,13 +2,45 @@
 
 SMS++ Block for two-stage stochastic programming problems.
 
+The `TwoStageStochasticBlock` is a `:Block` that represents a two-stage
+stochastic programming problem contained in its inner `Block`. It builds
+the explicit form of a two-stage stochastic problem by:
+
+- creating N copies of the inner deterministic `Block` (one per scenario)
+
+- adding non-anticipativity constraints to ensure first-stage variables
+  are the same across all scenarios
+
+- combining objectives weighted by probabilities.
+
+TODO: We need `Objective::scale()` to be implemented. Currently we have a
+workaround for `LinearFunction` objectives (like those of
+`CapacitatedFacilityLocationBlock` or `UCBlock`) that should be replaced.
+
+The class uses serialization/deserialization to create copies of the inner
+`Block`, which works for all `Block` types without requiring them to implement
+any special copy methods. The inner `Block` is serialized once and then
+deserialized N times to create independent copies for each scenario.
+
+Scenario data is applied automatically when a `ScenarioGenerator` is provided,
+either through deserialization (when a `ScenarioSet` is present in the netCDF)
+or by explicitly setting one via `set_scenario_generator()`. The class uses
+the `StochasticBlock` as a temporary "applicator" for scenarios: it sets each
+Block copy as the inner block of `StochasticBlock`, applies the scenario data
+through the `StochasticBlock::set_data()` method (which uses the
+`DataMappings`), then restores the original inner `Block`. This approach
+eliminates the need for `DataMapping::set_caller()` and provides a cleaner
+architecture.
+
+
 ## Getting started
 
 These instructions will let you build TwoStageStochasticBlock on your system.
 
 ### Requirements
 
-- [SMS++ StochasticBlock](https://gitlab.com/smspp/stochasticblock)
+- [SMS++ StochasticBlock](https://gitlab.com/smspp/stochasticblock).
+  which in turn requires the "core SMS++"
 
 ### Build and install with CMake
 
@@ -39,6 +71,34 @@ find_package(TwoStageStochasticBlock)
 target_link_libraries(<my_target> SMS++::TwoStageStochasticBlock)
 ```
 
+### Build and install with makefiles
+
+Carefully hand-crafted makefiles have also been developed for those unwilling
+to use CMake. Makefiles build the executable in-source (in the same directory
+tree where the code is) as opposed to out-of-source (in the copy of the
+directory tree constructed in the build/ folder) and therefore it is more
+convenient when having to recompile often, such as when developing/debugging
+a new module, as opposed to the compile-and-forget usage envisioned by CMake.
+
+Each executable using `TwoStageStochasticBlock` has to include a "main
+makefile" of the module, which typically is either [makefile-c](makefile-c)
+including all necessary libraries comprised the "core SMS++" one, or
+[makefile-s](makefile-s) including all necessary libraries but not the "core
+SMS++" one (for the common case in which this is used together with other
+modules that already include them). A televant exampl is the
+[tssb_solver](hhttps://gitlab.com/smspp/tools/-/blob/develop/tssb_solver/tssb_solver.cpp?ref_type=heads) available in the
+[tools](https://gitlab.com/smspp/tools) repository. The makefiles in turn
+recursively include all the required other makefiles, hence one should only
+need to edit the "main makefile" for compilation type (C++ compiler and its
+options) and it all should be good to go. In case some of the external
+libraries (say, StOpt) are not at their default location, it should only be
+necessary to create the `../extlib/makefile-paths` out of the
+`extlib/makefile-default-paths-*` for your OS `*` and edit the relevant bits
+(commenting out all the rest).
+
+Check the [SMS++ installation wiki](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration#location-of-required-libraries)
+for further details.
+
 ## Getting help
 
 If you need support, you want to submit bugs or propose a new feature, you can
@@ -54,6 +114,12 @@ conduct, and the process for submitting merge requests to us.
 ### Current Lead Authors
 
 - **Donato Meoli**  
+  Dipartimento di Informatica  
+  Università di Pisa
+
+### Contributors
+
+- **Antonio Frangioni**  
   Dipartimento di Informatica  
   Università di Pisa
 
