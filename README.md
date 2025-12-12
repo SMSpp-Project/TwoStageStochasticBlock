@@ -3,8 +3,9 @@
 SMS++ Block for two-stage stochastic programming problems.
 
 The `TwoStageStochasticBlock` is a `:Block` that represents a two-stage
-stochastic programming problem contained in its inner `Block`. It builds
-the explicit form of a two-stage stochastic problem by:
+stochastic programming problem contained in its inner `Block`. It currently
+supports the "Lagrangian version" of the formulation by building the
+explicit form of a two-stage stochastic problem by:
 
 - creating N copies of the inner deterministic `Block` (one per scenario)
 
