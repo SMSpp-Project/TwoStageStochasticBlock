@@ -4,7 +4,6 @@
 /** @file
  * Implementation of the TwoStageStochasticBlock class.
  *
- *
  * \author Antonio Frangioni \n
  *         Dipartimento di Informatica \n
  *         Universita' di Pisa \n
@@ -49,7 +48,8 @@ SMSpp_insert_in_factory_cpp_0( TwoStageStochasticBlockSolution );
 /*-------------------- METHODS of TwoStageStochasticBlock ------------------*/
 /*--------------------------------------------------------------------------*/
 
-TwoStageStochasticBlock::~TwoStageStochasticBlock() {
+TwoStageStochasticBlock::~TwoStageStochasticBlock()
+{
  Constraint::clear( here_and_now_const );
 
  for( auto & block : v_Block )
@@ -64,8 +64,9 @@ TwoStageStochasticBlock::~TwoStageStochasticBlock() {
 /*-------------------------- OTHER INITIALIZATIONS -------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::generate_abstract_variables( Configuration * stvv
-  ) {
+void TwoStageStochasticBlock::generate_abstract_variables(
+						        Configuration * stvv )
+{
  if( variables_generated() ) // variables have already been generated
   return;                    // nothing to do
 
@@ -80,15 +81,16 @@ void TwoStageStochasticBlock::generate_abstract_variables( Configuration * stvv
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlock::generate_abstract_constraints(
-  Configuration * stcc ) {
+						        Configuration * stcc )
+{
  if( constraints_generated() ) // constraints have already been generated
   return;                     // nothing to do
 
  // Ensure variables are generated first
  if( ! variables_generated() ) generate_abstract_variables();
 
- bool gen_seq_anchr_cnstrs = true; // sequential by default
- if((! stcc) && f_BlockConfig )
+ bool gen_seq_anchr_cnstrs = true; // 0: anchor, 1: sequential, sequential by default
+ if( ( ! stcc ) && f_BlockConfig )
   stcc = f_BlockConfig->f_static_constraints_Configuration;
  if( auto sci = dynamic_cast< SimpleConfiguration< int > * >( stcc ) )
   gen_seq_anchr_cnstrs = sci->f_value;
@@ -96,8 +98,7 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
  // Precompute variables for each scenario t, path i, and variable j
  boost::multi_array< std::vector< ColVariable * > , 2 > here_and_now_vars;
  here_and_now_vars.resize(
-   boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] )
- ;
+   boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
 
  for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
   auto block = get_sub_Block( t );
@@ -179,7 +180,8 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
 
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::generate_objective( Configuration * objc ) {
+void TwoStageStochasticBlock::generate_objective( Configuration * objc )
+{
  if( objective_generated() ) // objective has already been generated
   return;                   // nothing to do
 
@@ -229,7 +231,8 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc ) {
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
-                                                Observer::ChnlName chnl ) {
+						        Observer::ChnlName chnl )
+{
  // TODO
  if( anyone_there() )
   Block::add_Modification( std::make_shared< NBModification >( this ) , chnl );
@@ -239,7 +242,8 @@ void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
 /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
 /*--------------------------------------------------------------------------*/
 
-int TwoStageStochasticBlock::get_objective_sense() const {
+int TwoStageStochasticBlock::get_objective_sense( void ) const
+{
  try {
   auto sub_Block = get_sub_Block( 0 );
   if( sub_Block ) return( sub_Block->get_objective_sense() );
@@ -249,7 +253,8 @@ int TwoStageStochasticBlock::get_objective_sense() const {
 
 /*--------------------------------------------------------------------------*/
 
-Block *TwoStageStochasticBlock::get_sub_Block( Index scenario ) const {
+Block *TwoStageStochasticBlock::get_sub_Block( Index scenario ) const
+{
  if( scenario >= get_number_scenarios() )
   throw(std::invalid_argument(
    "TwoStageStochasticBlock::get_sub_Block: invalid scenario " +
@@ -259,7 +264,9 @@ Block *TwoStageStochasticBlock::get_sub_Block( Index scenario ) const {
 
 /*--------------------------------------------------------------------------*/
 
-std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables() const {
+std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
+						        void ) const
+{
  std::vector< ColVariable * > first_stage_vars;
 
  // Check if variables have been generated
@@ -296,7 +303,7 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
 /*--------------------------------------------------------------------------*/
 
 Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
-						  bool emptys )
+                                                  bool emptys )
 {
  Index wsol = 3;
  auto * sol = new TwoStageStochasticBlockSolution;
@@ -339,7 +346,8 @@ Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
 /*------- METHODS FOR PRINTING & SAVING THE TwoStageStochasticBlock --------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::print( std::ostream & output , char vlvl ) const {
+void TwoStageStochasticBlock::print( std::ostream & output , char vlvl ) const
+{
  output << std::endl << "TwoStageStochasticBlock with ";
 
  if( v_Block.empty() )
@@ -350,7 +358,8 @@ void TwoStageStochasticBlock::print( std::ostream & output , char vlvl ) const {
 
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const {
+void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
+{
  Block::serialize( group );
 
  // type
@@ -376,16 +385,16 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const {
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::scale_scenario_objective(
-  Block * scenario_block ,
-  double weight ) {
+void TwoStageStochasticBlock::scale_scenario_objective( Block * scenario_block ,
+                                                        double weight )
+{
  if( ! scenario_block ) return;
 
  Objective * obj = scenario_block->get_objective();
  if( ! obj ) return;
 
  // Check if it's FRealObjective with LinearFunction
- auto * freal_obj = dynamic_cast< FRealObjective * >(obj);
+ auto * freal_obj = dynamic_cast< FRealObjective * >( obj );
  if( ! freal_obj ) {
   // For now, skip non-FRealObjective objectives
   // Could add warning or throw depending on requirements
@@ -424,7 +433,8 @@ void TwoStageStochasticBlock::scale_scenario_objective(
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlock::set_scenario_generator(
-  ScenarioGenerator * generator ) {
+						        ScenarioGenerator * generator )
+{
  // Clean up previous generator if any
  if( scenario_generator ) delete scenario_generator;
 
@@ -440,7 +450,7 @@ void TwoStageStochasticBlock::set_scenario_generator(
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlockSolution::deserialize(
-					      const netCDF::NcGroup & group )
+						        const netCDF::NcGroup & group )
 {
  // call the method of the base class - not, it does nothing
  // Solution::deserialize( group );
@@ -603,8 +613,7 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group )
- const
+void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
 {
  // call the method of the base class
  Solution::serialize( group );
@@ -681,7 +690,7 @@ TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::scale(
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
-					   double multiplier )
+						        double multiplier )
 {
  auto TSSBS = dynamic_cast< const TwoStageStochasticBlockSolution * >(
 								  solution );
@@ -719,7 +728,7 @@ void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
 /*--------------------------------------------------------------------------*/
 
 TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::clone(
-							  bool empty ) const
+						        bool empty ) const
 {
  auto sol = new TwoStageStochasticBlockSolution();
 
