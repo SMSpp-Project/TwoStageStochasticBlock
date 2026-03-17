@@ -258,7 +258,7 @@ namespace SMSpp_di_unipi_it {
     // 2. Update all DataMapping callers to point to the new block
     const auto & data_mappings = stochastic_block->get_data_mappings();
     for( auto & dm : data_mappings )
-     dm->set_caller( block_copy );
+     dm->set_caller_from_reference( block_copy );
 
     // 3. Apply the current scenario through StochasticBlock
     auto scenario_data = scenario_generator->get_current_scenario();
