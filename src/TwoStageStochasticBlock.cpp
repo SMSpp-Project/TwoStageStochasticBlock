@@ -385,7 +385,7 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
-                                                         double weight )
+						        double weight )
 {
  if( ! block )
   return;
