@@ -449,8 +449,8 @@ namespace SMSpp_di_unipi_it {
   * If a SimpleConfiguration< int > is used, then all the subsequent bits
   * are passed as a the int value in a SimpleConfiguration< int > that is
   * passed as Configuration to get_Solution() when it is called to read() the
-  * Solution of the individual scenario; if such values are 0, no 
-  * Configuration is passed (the default is used). If a 
+  * Solution of the individual scenario; if such values are 0, no
+  * Configuration is passed (the default is used). If a
   * SimpleConfiguration< std::pair< int , Configuration * > is used, then its
   * f_value->second is passed to the inner get_Solution() instead.
   *
@@ -547,7 +547,7 @@ namespace SMSpp_di_unipi_it {
   *
   * @param weight the scaling factor (typically a probability in [0,1])
   */
- void scale_scenario_objective( Block * scenario_block , double weight );
+ void scale_objective_recursive( Block * block , double weight );
 
 /*--------------------------------------------------------------------------*/
 

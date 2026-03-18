@@ -209,9 +209,8 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc )
    if( ( scenario_idx < v_Block.size() ) && v_Block[ scenario_idx ] ) {
     // Get probability for current scenario
     double prob = scenario_generator->get_current_scenario_probability();
-
     // Scale this scenario's objective
-    scale_scenario_objective( v_Block[ scenario_idx ] , prob );
+    scale_objective_recursive( v_Block[ scenario_idx ] , prob );
    }
    scenario_idx++;
   } while( scenario_generator->next_scenario() );
@@ -354,7 +353,7 @@ void TwoStageStochasticBlock::print( std::ostream & output , char vlvl ) const
   output << "no inner Block";
  else
   output << v_Block.size() << " sub-Block" << std::endl;
-}
+}  // end( TwoStageStochasticBlock::print )
 
 /*--------------------------------------------------------------------------*/
 
@@ -379,56 +378,55 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
   }
   // Add support for other ScenarioGenerator types here if needed
  }
-}
+}  // end( TwoStageStochasticBlock::serialize )
 
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::scale_scenario_objective( Block * scenario_block ,
-                                                        double weight )
+void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
+                                                         double weight )
 {
- if( ! scenario_block ) return;
-
- Objective * obj = scenario_block->get_objective();
- if( ! obj ) return;
-
- // Check if it's FRealObjective with LinearFunction
- auto * freal_obj = dynamic_cast< FRealObjective * >( obj );
- if( ! freal_obj ) {
-  // For now, skip non-FRealObjective objectives
-  // Could add warning or throw depending on requirements
+ if( ! block )
   return;
- }
 
- auto * linear_func = dynamic_cast< LinearFunction * >( freal_obj->get_function() );
- if( ! linear_func ) {
-  // Skip non-LinearFunction objectives
-  return;
- }
+ // Try to scale the objective of the current block, if present and supported
+ if( auto * obj = block->get_objective() ) {
+  if( auto * freal_obj = dynamic_cast< FRealObjective * >( obj ) ) {
+   if( auto * linear_func =
+    dynamic_cast< LinearFunction * >( freal_obj->get_function() ) ) {
 
- // Scale all variable coefficients
- Index n_vars = linear_func->get_num_active_var();
- if( n_vars > 0 ) {
-  Function::Vec_FunctionValue scaled_coeffs;
-  scaled_coeffs.reserve( n_vars );
+    // Scale all variable coefficients
+    const Index n_vars = linear_func->get_num_active_var();
+    if( n_vars > 0 ) {
+     Function::Vec_FunctionValue scaled_coeffs;
+     scaled_coeffs.reserve( n_vars );
 
-  for( Index i = 0 ; i < n_vars ; ++i ) {
-   Function::FunctionValue coeff = linear_func->get_coefficient( i );
-   scaled_coeffs.push_back( coeff * weight );
+     for( Index i = 0 ; i < n_vars ; ++i ) {
+      Function::FunctionValue coeff = linear_func->get_coefficient( i );
+      scaled_coeffs.push_back( coeff * weight );
+     }
+
+     // Apply scaled coefficients using modify_coefficients
+     linear_func->modify_coefficients(
+       std::move( scaled_coeffs ) ,
+       Range( 0 , n_vars ) ,
+       eModBlck );
+    }
+
+    // Scale the constant term
+    const auto constant = linear_func->get_constant_term();
+    linear_func->set_constant_term( constant * weight , eModBlck );
+   }
   }
-
-  // Apply scaled coefficients using modify_coefficients
-  linear_func->modify_coefficients(
-    std::move( scaled_coeffs ) ,
-    Range( 0 , n_vars ) ,
-    eModBlck );
  }
 
- // Scale the constant term
- Function::FunctionValue constant = linear_func->get_constant_term();
- linear_func->set_constant_term( constant * weight , eModBlck );
-}
+ // Recurse on nested blocks
+ const auto & nested_blocks = block->get_nested_Blocks();
+ for( auto * nested : nested_blocks )
+  scale_objective_recursive( nested , weight );
+
+}  // end( TwoStageStochasticBlock::scale_objective_recursive )
 
 /*--------------------------------------------------------------------------*/
 
@@ -443,7 +441,7 @@ void TwoStageStochasticBlock::set_scenario_generator(
  // Note: Scenarios are applied during block creation in deserialize().
  // This method is primarily for setting the generator before deserialization
  // or for future use cases where scenarios might need to be changed.
-}
+}  // end( TwoStageStochasticBlock::set_scenario_generator )
 
 /*--------------------------------------------------------------------------*/
 /*------------- METHODS OF TwoStageStochasticBlockSolution -----------------*/
