@@ -117,6 +117,14 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
   }
  }
 
+ // No need for here-and-now constraints when there are no first-stage
+ // variables or only a single scenario; degenerate multi_array dimensions
+ // (e.g. [N][0]) confuse Solver-side scanners that walk over the buffer.
+ if( v_paths_to_static_vars.empty() || ( get_number_scenarios() <= 1 ) ) {
+  set_constraints_generated();
+  return;
+  }
+
  here_and_now_const.resize(
    boost::extents[ get_number_scenarios() - 1 ][ v_paths_to_static_vars.size() ] );
 
