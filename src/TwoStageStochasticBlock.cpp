@@ -24,6 +24,8 @@
 
 #include "DataMapping.h"
 
+#include "DQuadFunction.h"
+
 #include "FRealObjective.h"
 
 #include "LinearFunction.h"
@@ -393,8 +395,9 @@ void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
  // Try to scale the objective of the current block, if present and supported
  if( auto * obj = block->get_objective() ) {
   if( auto * freal_obj = dynamic_cast< FRealObjective * >( obj ) ) {
-   if( auto * linear_func =
-    dynamic_cast< LinearFunction * >( freal_obj->get_function() ) ) {
+   auto * func = freal_obj->get_function();
+
+   if( auto * linear_func = dynamic_cast< LinearFunction * >( func ) ) {
 
     // Scale all variable coefficients
     const Index n_vars = linear_func->get_num_active_var();
@@ -417,6 +420,31 @@ void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
     // Scale the constant term
     const auto constant = linear_func->get_constant_term();
     linear_func->set_constant_term( constant * weight , eModBlck );
+   }
+   else if( auto * quad_func = dynamic_cast< DQuadFunction * >( func ) ) {
+
+    // Scale linear and quadratic coefficients of every active Variable
+    const Index n_vars = quad_func->get_num_active_var();
+    if( n_vars > 0 ) {
+     DQuadFunction::v_coeff scaled_lin;
+     DQuadFunction::v_coeff scaled_quad;
+     scaled_lin.reserve( n_vars );
+     scaled_quad.reserve( n_vars );
+
+     for( Index i = 0 ; i < n_vars ; ++i ) {
+      scaled_lin.push_back(
+       quad_func->get_linear_coefficient( i ) * weight );
+      scaled_quad.push_back(
+       quad_func->get_quadratic_coefficient( i ) * weight );
+     }
+
+     quad_func->modify_terms( scaled_quad.cbegin() , scaled_lin.cbegin() ,
+                              Range( 0 , n_vars ) , eModBlck );
+    }
+
+    // Scale the constant term
+    const auto constant = quad_func->get_constant_term();
+    quad_func->set_constant_term( constant * weight , eModBlck );
    }
   }
  }
