@@ -11,7 +11,7 @@
 ##############################################################################
 
 # module name
-NAME = test
+NAME = TSSB_test
 
 # basic directory
 DIR = .

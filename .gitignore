@@ -3,7 +3,7 @@
 # ============================================================
 
 # --- Project-specific ---------------------------------------
-test/test_parse_serialize_deserialize
+test/TSSB_test
 
 # --- C/C++ build artifacts ----------------------------------
 *.o
