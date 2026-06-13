@@ -86,8 +86,8 @@ makefile" of the module, which typically is either [makefile-c](makefile-c)
 including all necessary libraries comprised the "core SMS++" one, or
 [makefile-s](makefile-s) including all necessary libraries but not the "core
 SMS++" one (for the common case in which this is used together with other
-modules that already include them). A televant exampl is the
-[tssb_solver](hhttps://gitlab.com/smspp/tools/-/blob/develop/tssb_solver/tssb_solver.cpp?ref_type=heads) available in the
+modules that already include them). A relevant example is the
+[tssb_solver](https://gitlab.com/smspp/tools/-/blob/develop/tssb_solver/tssb_solver.cpp?ref_type=heads) available in the
 [tools](https://gitlab.com/smspp/tools) repository. The makefiles in turn
 recursively include all the required other makefiles, hence one should only
 need to edit the "main makefile" for compilation type (C++ compiler and its
@@ -99,6 +99,12 @@ necessary to create the `../extlib/makefile-paths` out of the
 
 Check the [SMS++ installation wiki](https://gitlab.com/smspp/smspp-project/-/wikis/Customize-the-configuration#location-of-required-libraries)
 for further details.
+
+## Tests
+
+The [test](test) folder contains a tester for `TwoStageStochasticBlock`, which
+loads an instance from a netCDF file, attaches one or two `:Solver` through a
+`BlockSolverConfig` and compares their results.
 
 ## Getting help
 
