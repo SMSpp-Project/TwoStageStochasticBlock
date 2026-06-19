@@ -338,6 +338,23 @@ namespace SMSpp_di_unipi_it {
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the Block against which the here-and-now paths are resolved
+ /** Returns the Block relative to which the here-and-now AbstractPath in
+  * v_paths_to_static_vars are resolved for the given \p scenario. For a plain
+  * TwoStageStochasticBlock this is the scenario sub-Block itself, i.e.,
+  * get_sub_Block( scenario ). Derived classes that nest a further stochastic
+  * structure (such as MultiStageStochasticBlock, whose sub-Blocks are
+  * themselves TwoStageStochasticBlock) override this to descend into the
+  * representative sub-Block where the here-and-now variables physically live,
+  * so that the inherited constraint, Variable and Solution machinery keeps
+  * working unchanged. */
+
+ virtual Block * get_first_stage_block( Index scenario ) const {
+  return( get_sub_Block( scenario ) );
+  }
+
+/*--------------------------------------------------------------------------*/
+
  /// returns the number of scenarios
  /** This function returns the number of scenarios. */
  Index get_number_scenarios( void ) const { return( f_number_scenarios ); }
@@ -482,6 +499,14 @@ namespace SMSpp_di_unipi_it {
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
 
+ /// helper method to scale a single scenario's objective by a weight
+ /** Recursively scales the objective functions of \p block and of all its
+  * nested Blocks by the given \p weight, supporting LinearFunction and
+  * DQuadFunction objectives. It is protected so that derived classes (such as
+  * MultiStageStochasticBlock) can reuse it to apply their own per-sub-Block
+  * weights. */
+ void scale_objective_recursive( Block * block , double weight );
+
  /// states that the Variable have been generated
  void set_variables_generated( void ) { AR |= HasVar; }
 
@@ -534,21 +559,6 @@ namespace SMSpp_di_unipi_it {
 
 /*--------------------------------------------------------------------------*/
 /*---------------------------- PRIVATE METHODS -----------------------------*/
-/*--------------------------------------------------------------------------*/
-
- /// helper method to scale a single scenario's objective by a weight
- /** Scales the objective function of a scenario block by the given weight.
-  *
-  * This method checks if the block's objective is a FRealObjective with a
-  * LinearFunction, and if so, scales all coefficients and the constant term
-  * by the provided weight.
-  *
-  * @param scenario_block the Block whose objective to scale
-  *
-  * @param weight the scaling factor (typically a probability in [0,1])
-  */
- void scale_objective_recursive( Block * block , double weight );
-
 /*--------------------------------------------------------------------------*/
 
 //  /// apply scenarios to all blocks using the ScenarioGenerator

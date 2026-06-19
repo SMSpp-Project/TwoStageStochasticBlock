@@ -103,8 +103,11 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
    boost::extents[ get_number_scenarios() ][ v_paths_to_static_vars.size() ] );
 
  for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
-  auto block = get_sub_Block( t );
-  block->generate_abstract_constraints( stcc );
+  // generate the sub-Block's own constraints first, then resolve the
+  // here-and-now paths against its representative here-and-now Block (which
+  // is the sub-Block itself here, but a nested one in derived classes)
+  get_sub_Block( t )->generate_abstract_constraints( stcc );
+  auto block = get_first_stage_block( t );
   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
    auto number_variables =
      v_paths_to_static_vars[ i ]->get_number_elements< ColVariable >( block );
@@ -284,9 +287,9 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
   return( first_stage_vars ); // Return empty vector
  }
 
- // Get the first scenario block (all scenarios have the same first-stage
- // variables due to non-anticipativity constraints)
- Block * scenario_0_block = v_Block[ 0 ];
+ // Get the first scenario's here-and-now Block (all scenarios share the same
+ // first-stage variables due to non-anticipativity constraints)
+ Block * scenario_0_block = get_first_stage_block( 0 );
  if( ! scenario_0_block ) {
   return( first_stage_vars ); // Return empty vector
  }
@@ -570,7 +573,7 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
 
  // read here_and_now variables- - - - - - - - - - - - - - - - - - - - - - -
  if( ! v_here_and_now.empty() ) {
-  auto b0 = TSSB->get_sub_Block( 0 );
+  auto b0 = TSSB->get_first_stage_block( 0 );
   auto & ptshanv = TSSB->get_paths_to_static_here_and_now_vars();
   v_here_and_now.resize( ptshanv.size() );
   for( std::size_t i = 0 ; i < ptshanv.size() ; ++i ) {
@@ -609,7 +612,7 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 
  // write here_and_now variables - - - - - - - - - - - - - - - - - - - - - -
  if( ! v_here_and_now.empty() ) {
-  auto b0 = TSSB->get_sub_Block( 0 );
+  auto b0 = TSSB->get_first_stage_block( 0 );
   auto & ptshanv = TSSB->get_paths_to_static_here_and_now_vars();
   if( v_here_and_now.size() != ptshanv.size() )
    throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
