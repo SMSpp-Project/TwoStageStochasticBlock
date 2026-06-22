@@ -239,6 +239,16 @@ namespace SMSpp_di_unipi_it {
    scenario_generator->init_representative_pool( f_number_scenarios );
   }
 
+  // A scenario_generator may instead have been set externally (e.g. by an
+  // enclosing MultiStageStochasticBlock handing this inner Block a view onto
+  // its shared scenario tree). Then scenarios are injected from it all the
+  // same; the only difference is no DiscreteScenarioSet was built/owned here.
+  // Rewind it to the first scenario before the loop.
+  bool has_scenarios = has_discrete_scenarios ||
+                       ( scenario_generator != nullptr );
+  if( has_scenarios && ( ! has_discrete_scenarios ) )
+   scenario_generator->reset_pool();
+
   // Create blocks with scenarios applied using StochasticBlock as applicator
   for( Index i = 0; i < f_number_scenarios ; ++i ) {
    // Create a fresh copy of the inner block through deserialization
@@ -250,8 +260,9 @@ namespace SMSpp_di_unipi_it {
      "through deserialization for scenario " +
      std::to_string( i ) );
 
-   if( has_discrete_scenarios ) {
-    // Apply scenario data if DiscreteScenarioSet is available
+   if( has_scenarios ) {
+    // Apply scenario data from the generator (own DiscreteScenarioSet or an
+    // externally-provided view onto a shared scenario tree)
     // 1. Set the copy as inner block of StochasticBlock (don't destroy previous)
     stochastic_block->set_inner_block( block_copy , false );
 
