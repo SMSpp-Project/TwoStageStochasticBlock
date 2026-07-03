@@ -374,12 +374,13 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 {
  Block::serialize( group );
 
- // type
- group.putAtt( "type" , "TwoStageStochasticBlock" );
+ group.addDim( "NumberScenarios" , f_number_scenarios );
 
- // StochasticBlock
+ // the StochasticBlock, which carries the (original) inner Block and the
+ // DataMappings; note that the scenario copies in v_Block are NOT
+ // serialized, since deserialize() re-creates them from this group
  auto sub_group = group.addGroup( "StochasticBlock" );
- get_sub_Block( 0 )->serialize( sub_group );
+ stochastic_block->serialize( sub_group );
 
  // Serialize the DiscreteScenarioSet if present
  if( scenario_generator ) {
@@ -391,6 +392,11 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
   }
   // Add support for other ScenarioGenerator types here if needed
  }
+
+ // the AbstractPath(s) to the here-and-now (static) variables
+ auto static_path_group = group.addGroup( "StaticAbstractPath" );
+ AbstractPath::serialize( v_paths_to_static_vars , static_path_group );
+
 }  // end( TwoStageStochasticBlock::serialize )
 
 /*--------------------------------------------------------------------------*/

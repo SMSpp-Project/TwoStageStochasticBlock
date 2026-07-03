@@ -286,8 +286,12 @@ namespace SMSpp_di_unipi_it {
    v_Block.push_back( block_copy );
   }
 
-  // Restore the original inner block
+  // Restore the original inner block, re-pointing the DataMapping callers
+  // (which the scenario loop above left inside the last block copy) back
+  // into it
   stochastic_block->set_inner_block( original_inner_block , false );
+  for( const auto & dm : stochastic_block->get_data_mappings() )
+   dm->set_caller_from_reference( original_inner_block );
 
   // AbstractPath(s) to map both here-and-now static and dynamic variables
 
