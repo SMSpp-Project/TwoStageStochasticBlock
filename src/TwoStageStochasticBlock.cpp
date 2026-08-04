@@ -30,6 +30,8 @@
 
 #include "LinearFunction.h"
 
+#include "OneVarConstraint.h"
+
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -131,6 +133,95 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
  here_and_now_const.resize(
    boost::extents[ get_number_scenarios() - 1 ][ v_paths_to_static_vars.size() ] );
 
+ // the box a here-and-now constraint declares for its multiplier - - - - - -
+ // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ // a here-and-now Variable that is unbounded above sends the Lagrangian
+ // subproblem of its scenario to -INF as soon as the multiplier makes its
+ // cost negative, so the multiplier is bounded by that cost [see
+ // DualBoxTrait]. This only holds while raising the Variable stays feasible,
+ // i.e., while it occurs in every Constraint with a coefficient that relaxes
+ // it, which is the shape of a capacity; anything else is left with no box,
+ // which is always a valid answer
+
+ // the coefficient of v in the Objective of its Block, if that is linear
+ auto cost_of = [ & ]( const ColVariable * v , double & cost ) -> bool {
+  const auto blck = v->get_Block();
+  if( ! blck )
+   return( false );
+  const auto obj = dynamic_cast< FRealObjective * >( blck->get_objective() );
+  if( ! obj )
+   return( false );
+  const auto lf = dynamic_cast< LinearFunction * >( obj->get_function() );
+  if( ! lf )
+   return( false );
+  const auto k = lf->is_active( v );
+  cost = ( k < lf->get_num_active_var() ) ? lf->get_coefficient( k ) : 0;
+  return( true );
+  };
+
+ // true if v is unbounded above and raising it violates no Constraint, so
+ // that a negative cost really does send its subproblem to -INF
+ auto raising_is_free = [ & ]( const ColVariable * v ) -> bool {
+  if( v->get_ub() < Inf< ColVariable::VarValue >() )
+   return( false );
+
+  for( Index k = 0 ; k < v->get_num_active() ; ++k ) {
+   const auto act = v->get_active( k );
+
+   if( const auto ovc = dynamic_cast< OneVarConstraint * >( act ) ) {
+    if( ovc->get_rhs() < Inf< RowConstraint::RHSValue >() )
+     return( false );
+    continue;
+    }
+
+   const auto lf = dynamic_cast< LinearFunction * >( act );
+   if( ! lf )       // something that cannot be analysed: give up
+    return( false );
+
+   const auto obs = lf->get_Observer();
+   if( dynamic_cast< FRealObjective * >( obs ) )
+    continue;       // the Objective is where the cost comes from
+
+   const auto row = dynamic_cast< FRowConstraint * >( obs );
+   if( ! row )
+    return( false );
+
+   const auto cf = lf->get_coefficient( lf->is_active( v ) );
+   // raising v must not tighten the row: nonpositive in  expr <= rhs ,
+   // nonnegative in  lhs <= expr , and an equality is out of the question
+   if( row->get_rhs() < Inf< RowConstraint::RHSValue >() ) {
+    if( row->get_lhs() > -Inf< RowConstraint::RHSValue >() )
+     return( false );          // an equality or a ranged row
+    if( cf > 0 )
+     return( false );
+    }
+   else
+    if( cf < 0 )
+     return( false );
+   }
+
+  return( true );
+  };
+
+ // the box of the constraint  v_up - v_dn == 0 : the multiplier adds to the
+ // cost of v_up and subtracts from that of v_dn, so each unbounded side
+ // bounds it from the corresponding direction
+ auto set_box = [ & ]( FRowConstraint & con , const ColVariable * v_up ,
+                       const ColVariable * v_dn ) -> void {
+  auto lb = -Inf< DualBoxTrait::DualValue >();
+  auto ub =  Inf< DualBoxTrait::DualValue >();
+  double cost;
+
+  if( raising_is_free( v_up ) && cost_of( v_up , cost ) && ( cost >= 0 ) )
+   lb = - cost;
+  if( raising_is_free( v_dn ) && cost_of( v_dn , cost ) && ( cost >= 0 ) )
+   ub = cost;
+
+  if( ( lb > -Inf< DualBoxTrait::DualValue >() ) ||
+      ( ub <  Inf< DualBoxTrait::DualValue >() ) )
+   con.set_dual_box( lb , ub );
+  };
+
  LinearFunction::v_coeff_pair vars;
 
  if( gen_seq_anchr_cnstrs ) { // sequential constraints
@@ -155,6 +246,9 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
      here_and_now_const[ t ][ i ][ j ].set_both( 0.0 );
      here_and_now_const[ t ][ i ][ j ].set_function(
        new LinearFunction( std::move( vars ) ) );
+     set_box( here_and_now_const[ t ][ i ][ j ] ,
+              here_and_now_vars[ t ][ i ][ j ] ,
+              here_and_now_vars[ t + 1 ][ i ][ j ] );
     }
    }
   }
@@ -181,6 +275,9 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
      here_and_now_const[ t - 1 ][ i ][ j ].set_both( 0.0 );
      here_and_now_const[ t - 1 ][ i ][ j ].set_function(
        new LinearFunction( std::move( vars ) ) );
+     set_box( here_and_now_const[ t - 1 ][ i ][ j ] ,
+              here_and_now_vars[ 0 ][ i ][ j ] ,
+              here_and_now_vars[ t ][ i ][ j ] );
     }
    }
   }
