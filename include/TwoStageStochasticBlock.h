@@ -175,7 +175,10 @@ namespace SMSpp_di_unipi_it {
   *
   * - NumberScenarios: dimension specifying the number of scenarios
   * - StochasticBlock: group containing the StochasticBlock definition
-  * - StaticAbstractPath: group with AbstractPaths to first-stage variables
+  * - StaticAbstractPath (optional): group with AbstractPaths to first-stage
+  *   variables. Without it this Block has no first-stage variable of its
+  *   own, which is the case when the first-stage decision is stated above
+  *   it, in a Block of its own, rather than replicated in each scenario
   * - DynamicAbstractPath (optional): currently not supported
   *
   * This method creates N copies of the inner block (one per scenario) by
@@ -297,11 +300,13 @@ namespace SMSpp_di_unipi_it {
 
   auto static_path_group = group.getGroup( "StaticAbstractPath" );
 
+  // the group is optional: without it this Block has no here-and-now
+  // Variable of its own, which is what the scenarios look like when the
+  // first-stage decision is stated above them, in a Block of its own, rather
+  // than replicated in each of them and tied by the non-anticipativity
+  // Constraint. There is then nothing to address and nothing to tie
   if( ! static_path_group.isNull() )
    AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars );
-  else
-   throw(std::invalid_argument( "TwoStageStochasticBlock::deserialize: the "
-    "group 'StaticAbstractPath' was not found." ) );
 
   auto dynamic_path_group = group.getGroup( "DynamicAbstractPath" );
 
