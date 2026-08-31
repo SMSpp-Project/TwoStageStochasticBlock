@@ -296,6 +296,16 @@ namespace SMSpp_di_unipi_it {
   for( const auto & dm : stochastic_block->get_data_mappings() )
    dm->set_caller_from_reference( original_inner_block );
 
+  // the scenario copies are sub-Block of this Block, not of the
+  // StochasticBlock: set_inner_block() re-pointed their father to it while it
+  // was serving as the applicator of the scenario data, and nothing put it
+  // back. Leaving it there makes the father chain and v_Block disagree, and
+  // since anyone_there() descends along v_Block while Modification climb
+  // along the fathers, the StochasticBlock sits in the latter with the flag
+  // never set, and silently drops every Modification coming from a scenario
+  for( auto * block_copy : v_Block )
+   block_copy->set_f_Block( this );
+
   // AbstractPath(s) to map both here-and-now static and dynamic variables
 
   auto static_path_group = group.getGroup( "StaticAbstractPath" );
