@@ -391,6 +391,35 @@ namespace SMSpp_di_unipi_it {
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the number of leaves of the scenario structure
+ /** Returns how many Block the uncertainty is finally realized in, which for
+  * a plain TwoStageStochasticBlock is the number of scenarios. It differs
+  * from get_number_scenarios() in a derived class nesting a further
+  * stochastic structure, where each scenario carries a whole subtree: there
+  * the leaves are those of all the subtrees together. Whoever has to act on
+  * every realization, rather than on one representative per scenario, counts
+  * them with this and reaches them with get_leaf_block(). */
+
+ virtual Index get_number_leaves( void ) const {
+  return( get_number_scenarios() );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the Block of the \p leaf -th realization
+ /** Returns the Block the here-and-now AbstractPath are resolved against for
+  * the \p leaf -th realization, with \p leaf in [ 0 , get_number_leaves() ).
+  * For a plain TwoStageStochasticBlock this is get_first_stage_block( leaf );
+  * a derived class nesting a further stochastic structure flattens its own
+  * subtrees into a single index here, so that the leaves of the whole tree
+  * are enumerated in order. */
+
+ virtual Block * get_leaf_block( Index leaf ) const {
+  return( get_first_stage_block( leaf ) );
+  }
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the ScenarioGenerator for automatic scenario application
  /** This method sets a ScenarioGenerator that will be used to automatically
   * apply scenario data to block copies. The generator must provide scenarios
