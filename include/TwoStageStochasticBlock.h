@@ -29,6 +29,8 @@
 
 #include "Block.h"
 
+#include "Solution.h"
+
 #include "StochasticBlock.h"
 
 #include "ScenarioGenerator.h"
