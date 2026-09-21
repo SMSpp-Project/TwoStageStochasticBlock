@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `get_Benders_form()` and `give_back_Benders_form()`: the same problem in the
+  form a Benders decomposition asks for, i.e., a root holding a single copy of
+  the static here-and-now Variable, integer where they are, with their box and
+  the cost of the design, and one sub-Block per leaf holding the leaf and the
+  coupling x^l - x <= 0; the leaves are moved into it, not copied, and are
+  given back, with the cost of the design written back into them, when the
+  form is deleted
+
 ### Changed
 
 ### Fixed

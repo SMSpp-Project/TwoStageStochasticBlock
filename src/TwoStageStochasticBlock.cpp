@@ -22,13 +22,19 @@
 
 #include "TwoStageStochasticBlock.h"
 
+#include "AbstractBlock.h"
+
 #include "DataMapping.h"
 
 #include "DQuadFunction.h"
 
 #include "FRealObjective.h"
 
+#include "FRowConstraint.h"
+
 #include "LinearFunction.h"
+
+#include "OneVarConstraint.h"
 
 /*--------------------------------------------------------------------------*/
 /*------------------------- NAMESPACE AND USING ----------------------------*/
@@ -309,6 +315,179 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
 
  return( first_stage_vars );
 }
+
+/*--------------------------------------------------------------------------*/
+
+AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
+{
+ const Index L = get_number_leaves();
+
+ std::vector< std::vector< ColVariable * > > xk( L );
+ for( Index l = 0 ; l < L ; ++l ) {
+  auto leaf = get_leaf_block( l );
+  if( ! leaf )
+   return( nullptr );
+
+  for( const auto & p : v_paths_to_static_vars ) {
+   const auto nv = p->get_number_elements< ColVariable >( leaf );
+   auto e = p->get_element< ColVariable >( leaf );
+   for( Index j = 0 ; j < nv ; ++j )
+    xk[ l ].push_back( e + j );
+   }
+  }
+
+ const Index n = L ? xk[ 0 ].size() : 0;
+ if( ! n )
+  return( nullptr );
+
+ for( Index l = 1 ; l < L ; ++l )
+  if( xk[ l ].size() != n )
+   return( nullptr );
+
+ auto root = new AbstractBlock();
+
+ /* the box of a design Variable is not on the Variable: the units state it
+  * as a OneVarConstraint of their own, which is one of the "active stuff" of
+  * the Variable, so the bounds are collected from there and intersected with
+  * whatever the Variable itself declares */
+
+ auto x = new std::vector< ColVariable >( n );
+ auto bnd = new std::vector< BoxConstraint >( n );
+
+ for( Index j = 0 ; j < n ; ++j ) {
+  auto lo = xk[ 0 ][ j ]->get_lb() , up = xk[ 0 ][ j ]->get_ub();
+  for( Index a = 0 ; a < xk[ 0 ][ j ]->get_num_active() ; ++a )
+   if( auto ovc = dynamic_cast< OneVarConstraint * >(
+                                         xk[ 0 ][ j ]->get_active( a ) ) ) {
+    lo = std::max( lo , double( ovc->get_lhs() ) );
+    up = std::min( up , double( ovc->get_rhs() ) );
+    }
+
+  // a design that counts modules is integer in the root as in the leaves
+  if( xk[ 0 ][ j ]->is_integer() )
+   ( *x )[ j ].is_integer( true , eNoMod );
+
+  ( *bnd )[ j ].set_variable( & ( *x )[ j ] );
+  ( *bnd )[ j ].set_lhs( lo );
+  ( *bnd )[ j ].set_rhs( up );
+  }
+
+ root->add_static_variable( *x , "x" );
+ root->add_static_constraint( *bnd , "design bound" );
+
+ // the cost of the design, taken out of the Objective of every leaf and
+ // recorded, so that give_back_Benders_form() can write it back
+ v_Benders_cost.clear();
+ std::vector< double > cost( n , 0 );
+
+ for( Index l = 0 ; l < L ; ++l )
+  for( Index j = 0 ; j < n ; ++j ) {
+   auto var = xk[ l ][ j ];
+   for( Index a = 0 ; a < var->get_num_active() ; ++a ) {
+    auto obj = dynamic_cast< FRealObjective * >( var->get_active( a ) );
+    if( ! obj )
+     continue;
+
+    if( auto lf = dynamic_cast< LinearFunction * >( obj->get_function() ) ) {
+     const auto & vv = lf->get_v_var();
+     for( Index i = 0 ; i < vv.size() ; ++i )
+      if( vv[ i ].first == var ) {
+       cost[ j ] += vv[ i ].second;
+       v_Benders_cost.emplace_back( lf , var , vv[ i ].second );
+       lf->remove_variable( i );
+       break;
+       }
+     }
+    break;
+    }
+   }
+
+ /* Every design Variable enters the Objective of the root, those that cost
+  * nothing with a zero coefficient: a bundle solving the master in its
+  * sparse mode asks its linear part to cover all the Variable the value
+  * functions are active in, and they are active in all of them. */
+
+ auto rlf = new LinearFunction();
+ for( Index j = 0 ; j < n ; ++j )
+  rlf->add_variable( & ( *x )[ j ] , cost[ j ] );
+
+ auto robj = new FRealObjective( root , rlf );
+ robj->set_sense( Objective::eMin );
+ root->set_objective( robj );
+
+ // one sub-Block per leaf, the wrapper carrying the coupling
+ v_Benders_father.resize( L );
+ for( Index l = 0 ; l < L ; ++l ) {
+  auto leaf = get_leaf_block( l );
+  v_Benders_father[ l ] = leaf->get_f_Block();
+  auto sub = new AbstractBlock( root );
+
+  /* the wrapper adds nothing to the Objective of the leaf, but it has to say
+   * which way the subproblem goes: a Block with no Objective answers eUndef,
+   * and the sign of the cuts is read off that */
+
+  auto sof = new FRealObjective();
+  sof->set_function( new LinearFunction() );
+  sof->set_sense( Objective::eMin );
+  sub->set_objective( sof );
+
+  auto cns = new std::list< FRowConstraint >( n );
+  Index j = 0;
+  for( auto & c : *cns ) {
+   auto lf = new LinearFunction();
+   lf->add_variable( xk[ l ][ j ] , 1 );
+   lf->add_variable( & ( *x )[ j ] , -1 );
+   c.set_function( lf );
+   c.set_lhs( - Inf< double >() );
+   c.set_rhs( 0 );
+   ++j;
+   }
+
+  sub->add_dynamic_constraint( *cns , "link" );
+  leaf->set_f_Block( sub );
+  sub->add_nested_Block( leaf );
+  root->add_nested_Block( sub );
+  }
+
+ return( root );
+
+ }  // end( TwoStageStochasticBlock::get_Benders_form )
+
+/*--------------------------------------------------------------------------*/
+
+void TwoStageStochasticBlock::give_back_Benders_form( AbstractBlock * form )
+{
+ if( ! form )
+  return;
+
+ // each leaf goes back under its father, out of a wrapper that must not
+ // delete it with itself
+ const auto & subs = form->get_nested_Blocks();
+ if( subs.size() != v_Benders_father.size() )
+  throw( std::invalid_argument( "TwoStageStochasticBlock::"
+                                "give_back_Benders_form: not the form of "
+                                "this TwoStageStochasticBlock" ) );
+
+ for( Index l = 0 ; l < subs.size() ; ++l ) {
+  auto sub = static_cast< AbstractBlock * >( subs[ l ] );
+  auto & nested = sub->access_nested_Blocks();
+  for( auto leaf : nested )
+   leaf->set_f_Block( v_Benders_father[ l ] );
+  nested.clear();
+  }
+
+ // the coupling refers to the Variable of the leaves, which are alive, so
+ // deleting the form unregisters it from them
+ delete form;
+
+ // the cost of the design back where it was
+ for( auto & [ lf , var , coeff ] : v_Benders_cost )
+  lf->add_variable( var , coeff );
+
+ v_Benders_cost.clear();
+ v_Benders_father.clear();
+
+ }  // end( TwoStageStochasticBlock::give_back_Benders_form )
 
 /*--------------------------------------------------------------------------*/
 /*----------------------- Methods for handling Solution --------------------*/
