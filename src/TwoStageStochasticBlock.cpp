@@ -111,8 +111,10 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
  for( int t = 0 ; t < get_number_scenarios() ; ++t ) {
   // generate the sub-Block's own constraints first, then resolve the
   // here-and-now paths against its representative here-and-now Block (which
-  // is the sub-Block itself here, but a nested one in derived classes)
-  get_sub_Block( t )->generate_abstract_constraints( stcc );
+  // is the sub-Block itself here, but a nested one in derived classes); the
+  // sub-Block reads its own Configuration, stcc being that of this Block
+  // (anchor or sequential), which a sub-Block would read as its own
+  get_sub_Block( t )->generate_abstract_constraints();
   auto block = get_first_stage_block( t );
   for( int i = 0 ; i < v_paths_to_static_vars.size() ; ++i ) {
    auto number_variables =

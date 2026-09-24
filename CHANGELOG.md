@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the sub-Block generate their constraints out of their own Configuration,
+  and not out of that of the `TwoStageStochasticBlock` (anchor or
+  sequential), which a sub-Block read as its own: a
+  `CapacitatedFacilityLocationBlock` whose `TwoStageStochasticBlock` had
+  the anchor constraints lost its demand constraints
+
 - the header includes the `Solution` it derives from, which it was getting by
   chance from another header and would have stopped getting the day that one
   stopped including it
