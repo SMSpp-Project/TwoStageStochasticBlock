@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- the test of this module enters the build and the pipeline runs it: its
+  directory was never added, `BUILD_TESTING` being consumed by a comment, so
+  the check of the direct construction and of the registration in the factory
+  was built by nobody, and it now carries the label of the module, which is
+  what `ctest -L <module>` selects
+
+### Fixed
+
 - the sub-Block generate their constraints out of their own Configuration,
   and not out of that of the `TwoStageStochasticBlock` (anchor or
   sequential), which a sub-Block read as its own: a

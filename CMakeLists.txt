@@ -149,7 +149,11 @@ add_library(${modNamespace}::${modName} ALIAS ${modName})
 
 # ----- Subdirectories ------------------------------------------------------ #
 if (BUILD_TESTING)
-    # Just consuming BUILD_TESTING to avoid warnings
+    # enable testing in this directory's scope: the umbrella calls
+    # enable_testing() only after this subdirectory has been processed, so the
+    # test would otherwise not be registered with CTest
+    enable_testing()
+    add_subdirectory(test)
 endif ()
 
 # ----- Install instructions ------------------------------------------------ #
