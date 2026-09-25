@@ -33,8 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was built by nobody, and it now carries the label of the module, which is
   what `ctest -L <module>` selects
 
-### Fixed
-
 - the sub-Block generate their constraints out of their own Configuration,
   and not out of that of the `TwoStageStochasticBlock` (anchor or
   sequential), which a sub-Block read as its own: a
@@ -44,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - the header includes the `Solution` it derives from, which it was getting by
   chance from another header and would have stopped getting the day that one
   stopped including it
+
 ## [0.2.0] - 2026-09-12
 
 ### Changed
