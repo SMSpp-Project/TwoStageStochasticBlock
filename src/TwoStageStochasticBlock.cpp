@@ -247,18 +247,6 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc )
 } // end( TwoStageStochasticBlock::generate_objective )
 
 /*--------------------------------------------------------------------------*/
-/*-------------------- Methods for handling Modification -------------------*/
-/*--------------------------------------------------------------------------*/
-
-void TwoStageStochasticBlock::add_Modification( sp_Mod mod ,
-						        Observer::ChnlName chnl )
-{
- // TODO
- if( anyone_there() )
-  Block::add_Modification( std::make_shared< NBModification >( this ) , chnl );
-}
-
-/*--------------------------------------------------------------------------*/
 /*------ METHODS FOR READING THE DATA OF THE TwoStageStochasticBlock -------*/
 /*--------------------------------------------------------------------------*/
 

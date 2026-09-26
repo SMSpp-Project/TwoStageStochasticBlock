@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- a Modification of a scenario reaches the Solver attached to the
+  TwoStageStochasticBlock as it is, as for any other Block, instead of as an
+  NBModification of the whole Block: a `LagrangianDualSolver` could not tell
+  from it which component had changed, and under an `InvestmentFunction`
+  it kept answering with the value of the design it had first seen
+
 - on macOS a program linking the module lost the classes the module
   registers in the factories when the linker dropped the library, as it
   does under `-dead_strip_dylibs`, which conda sets: the target now asks the
