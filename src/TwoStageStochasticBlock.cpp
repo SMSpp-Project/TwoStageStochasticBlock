@@ -825,30 +825,6 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 
 /*--------------------------------------------------------------------------*/
 
-bool TwoStageStochasticBlockSolution::is_dual_feasible( Block * block ,
-							Configuration * fsbc )
-{
- auto TSSB = dynamic_cast< TwoStageStochasticBlock * >( block );
- if( ! TSSB )
-  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::"
-				"is_dual_feasible: block is not a "
-				"TwoStageStochasticBlock" ) );
-
- if( v_scenario_solutions.empty() )
-  return( false );
-
- for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i )
-  if( ( ! v_scenario_solutions[ i ] ) ||
-      ( ! v_scenario_solutions[ i ]->is_dual_feasible(
-					  TSSB->get_sub_Block( i ) , fsbc ) ) )
-   return( false );
-
- return( true );
-
- }  // end( TwoStageStochasticBlockSolution::is_dual_feasible )
-
-/*--------------------------------------------------------------------------*/
-
 void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
 {
  // call the method of the base class

@@ -727,14 +727,6 @@ class TwoStageStochasticBlockSolution : public Solution
 
  friend TwoStageStochasticBlock;  ///< make TwoStageStochasticBlock friend
 
-/*--------------------------------------------------------------------------*/
- /// tells whether the dual values held here are feasible for the Block
- /** Asks the Solution of each scenario held here, with its sub-Block; false
-  * if there is none, or if one of them says false [see Solution::is_dual_feasible()]. */
-
- bool is_dual_feasible( Block * block ,
-			Configuration * fsbc = nullptr ) override;
-
 /*------ CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlockSolution ------*/
 
  /// constructor
