@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `get_leaf_probability( leaf )`, the weight `generate_objective()` gives to
+  the Objective of the leaf, i.e., the probability of its scenario (1 without
+  a ScenarioGenerator), for whoever takes the leaves away before the
+  Objective is generated and weighs them itself; the probabilities are kept
+  when the scenarios are applied in `deserialize()`
+
 - `get_Benders_form()` and `give_back_Benders_form()`: the same problem in the
   form a Benders decomposition asks for, i.e., a root holding a single copy of
   the static here-and-now Variable, integer where they are, with their box and

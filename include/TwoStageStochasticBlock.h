@@ -234,6 +234,7 @@ namespace SMSpp_di_unipi_it {
     "StochasticBlock has no inner block." );
 
   v_Block.reserve( f_number_scenarios );
+  v_scenario_probability.clear();
 
   // Check for a ScenarioGenerator group (could be DiscreteScenarioSet or
   // other)
@@ -282,7 +283,10 @@ namespace SMSpp_di_unipi_it {
     for( auto & dm : data_mappings )
      dm->set_caller_from_reference( block_copy );
 
-    // 3. Apply the current scenario through StochasticBlock
+    // 3. Apply the current scenario through StochasticBlock, keeping its
+    //    probability [see get_leaf_probability()]
+    v_scenario_probability.push_back(
+                  scenario_generator->get_current_scenario_probability() );
     auto scenario_data = scenario_generator->get_current_scenario();
     // Convert span to vector for compatibility with set_data
     std::vector scenario_vec( scenario_data.begin() , scenario_data.end() );
@@ -424,6 +428,22 @@ namespace SMSpp_di_unipi_it {
 
  virtual Block * get_leaf_block( Index leaf ) const {
   return( get_first_stage_block( leaf ) );
+  }
+
+/*--------------------------------------------------------------------------*/
+
+ /// returns the probability of the \p leaf -th realization
+ /** Returns the weight that generate_objective() gives to the Objective of
+  * the \p leaf -th realization [see get_leaf_block()], i.e., the probability
+  * of its scenario, or 1 if there is no ScenarioGenerator, in which case the
+  * Objective is not scaled. Whoever takes the leaves away before
+  * generate_objective() has scaled them, to weigh each of them itself, reads
+  * here the weight to use. For a plain TwoStageStochasticBlock the leaves are
+  * the scenarios, and \p leaf is in [ 0 , get_number_leaves() ). */
+
+ virtual double get_leaf_probability( Index leaf ) const {
+  return( leaf < v_scenario_probability.size() ?
+          v_scenario_probability[ leaf ] : 1.0 );
   }
 
 /*--------------------------------------------------------------------------*/
@@ -635,6 +655,9 @@ namespace SMSpp_di_unipi_it {
 
  ScenarioGenerator * scenario_generator = nullptr;
  ///< The ScenarioGenerator for automatic scenario application (owned)
+
+ std::vector< double > v_scenario_probability;
+ ///< The probability of each scenario, empty if there is no ScenarioGenerator
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_static_vars;
  ///< The AbstractPath to the affected here-and-now static ColVariable
