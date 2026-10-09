@@ -7,11 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-09
+
 ### Added
+
+- `get_leaf_probability( leaf )`, the weight `generate_objective()` gives to
+  the Objective of the leaf, i.e., the probability of its scenario (1 without
+  a ScenarioGenerator), for whoever takes the leaves away before the
+  Objective is generated and weighs them itself; the probabilities are kept
+  when the scenarios are applied in `deserialize()`
+
+- `get_Benders_form()` and `give_back_Benders_form()`: the same problem in the
+  form a Benders decomposition asks for, i.e., a root holding a single copy of
+  the static here-and-now Variable, integer where they are, with their box and
+  the cost of the design, and one sub-Block per leaf holding the leaf and the
+  coupling x^l - x <= 0; the leaves are moved into it, not copied, and are
+  given back, with the cost of the design written back into them, when the
+  form is deleted
 
 ### Changed
 
+- whoever links the module keeps it: the classes of a module register
+  themselves in the factory from a static initialiser, and a linker that
+  drops what looks unused takes the registration away with it, so the target
+  now tells whoever links it to keep the symbol that forces the module in,
+  and on ELF, where naming the symbol is not enough, the library as a whole
+
 ### Fixed
+
+- a Modification of a scenario reaches the Solver attached to the
+  TwoStageStochasticBlock as it is, as for any other Block, instead of as an
+  NBModification of the whole Block: a `LagrangianDualSolver` could not tell
+  from it which component had changed, and under an `InvestmentFunction`
+  it kept answering with the value of the design it had first seen
+
+- on macOS a program linking the module lost the classes the module
+  registers in the factories when the linker dropped the library, as it
+  does under `-dead_strip_dylibs`, which conda sets: the target now asks the
+  linker for the symbol that forces the module in (`-u`), which ld64,
+  unlike the ELF linker, counts as a use of the library
+
+- the test of this module enters the build and the pipeline runs it: its
+  directory was never added, `BUILD_TESTING` being consumed by a comment, so
+  the check of the direct construction and of the registration in the factory
+  was built by nobody, and it now carries the label of the module, which is
+  what `ctest -L <module>` selects
+
+- the sub-Block generate their constraints out of their own Configuration,
+  and not out of that of the `TwoStageStochasticBlock` (anchor or
+  sequential), which a sub-Block read as its own: a
+  `CapacitatedFacilityLocationBlock` whose `TwoStageStochasticBlock` had
+  the anchor constraints lost its demand constraints
+
+- the header includes the `Solution` it derives from, which it was getting by
+  chance from another header and would have stopped getting the day that one
+  stopped including it
 
 ## [0.2.0] - 2026-09-12
 
@@ -44,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release.
 
-[Unreleased]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.2.0...develop
+[Unreleased]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.3.0...develop
+[0.3.0]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.2.0...0.3.0
 [0.2.0]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.1.0...0.2.0
 [0.1.0]: https://gitlab.com/smspp/twostagestochasticblock/-/tags/0.1.0

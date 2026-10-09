@@ -29,11 +29,15 @@
 
 #include "Block.h"
 
+#include "Solution.h"
+
 #include "StochasticBlock.h"
 
 #include "ScenarioGenerator.h"
 
 #include "DiscreteScenarioSet.h"
+
+#include <tuple>
 
 /*--------------------------------------------------------------------------*/
 /*----------------------------- NAMESPACE ----------------------------------*/
@@ -41,6 +45,10 @@
 
 /// namespace for the Structured Modeling System++ (SMS++)
 namespace SMSpp_di_unipi_it {
+
+ class AbstractBlock;   // forward definition of AbstractBlock
+
+ class LinearFunction;  // forward definition of LinearFunction
 
 /*--------------------------------------------------------------------------*/
 /*------------------- CLASS TwoStageStochasticBlock ------------------------*/
@@ -226,6 +234,7 @@ namespace SMSpp_di_unipi_it {
     "StochasticBlock has no inner block." );
 
   v_Block.reserve( f_number_scenarios );
+  v_scenario_probability.clear();
 
   // Check for a ScenarioGenerator group (could be DiscreteScenarioSet or
   // other)
@@ -274,7 +283,10 @@ namespace SMSpp_di_unipi_it {
     for( auto & dm : data_mappings )
      dm->set_caller_from_reference( block_copy );
 
-    // 3. Apply the current scenario through StochasticBlock
+    // 3. Apply the current scenario through StochasticBlock, keeping its
+    //    probability [see get_leaf_probability()]
+    v_scenario_probability.push_back(
+                  scenario_generator->get_current_scenario_probability() );
     auto scenario_data = scenario_generator->get_current_scenario();
     // Convert span to vector for compatibility with set_data
     std::vector scenario_vec( scenario_data.begin() , scenario_data.end() );
@@ -420,6 +432,22 @@ namespace SMSpp_di_unipi_it {
 
 /*--------------------------------------------------------------------------*/
 
+ /// returns the probability of the \p leaf -th realization
+ /** Returns the weight that generate_objective() gives to the Objective of
+  * the \p leaf -th realization [see get_leaf_block()], i.e., the probability
+  * of its scenario, or 1 if there is no ScenarioGenerator, in which case the
+  * Objective is not scaled. Whoever takes the leaves away before
+  * generate_objective() has scaled them, to weigh each of them itself, reads
+  * here the weight to use. For a plain TwoStageStochasticBlock the leaves are
+  * the scenarios, and \p leaf is in [ 0 , get_number_leaves() ). */
+
+ virtual double get_leaf_probability( Index leaf ) const {
+  return( leaf < v_scenario_probability.size() ?
+          v_scenario_probability[ leaf ] : 1.0 );
+  }
+
+/*--------------------------------------------------------------------------*/
+
  /// sets the ScenarioGenerator for automatic scenario application
  /** This method sets a ScenarioGenerator that will be used to automatically
   * apply scenario data to block copies. The generator must provide scenarios
@@ -491,6 +519,42 @@ namespace SMSpp_di_unipi_it {
   }
 
 /*--------------------------------------------------------------------------*/
+ /// returns the Benders form of the two-stage problem
+ /** Returns a new AbstractBlock that describes the same problem as this one
+  * in the form a Benders decomposition asks for: its static Variable are a
+  * single copy of the static here-and-now Variable (with the integrality of
+  * those of the first leaf and, as the only Constraint, their box, i.e., the
+  * intersection of the bounds of the Variable with those the leaf states as
+  * OneVarConstraint), its Objective is the cost of the design, and it has
+  * one sub-Block per leaf, which holds the leaf and the coupling
+  * \f[
+  *   x^\ell_j - x_j \leq 0 \qquad j = 1 , \ldots , n
+  * \f]
+  * written as dynamic FRowConstraint. The cost of the design is taken out of
+  * the Objective of every leaf, where it is a term of a LinearFunction, and
+  * summed into that of the root: the value of a leaf can then only decrease
+  * as x grows, which is what the sign of a Benders cut is read off.
+  *
+  * The leaves are moved into the returned AbstractBlock rather than copied,
+  * hence this TwoStageStochasticBlock cannot be used until
+  * give_back_Benders_form() has been called; the abstract representation
+  * has to have been generated before. Returns nullptr, having touched
+  * nothing, if there are no static here-and-now Variable or the leaves do
+  * not all have the same number of them. */
+
+ AbstractBlock * get_Benders_form( void );
+
+/*--------------------------------------------------------------------------*/
+ /// gives back what get_Benders_form() has taken, and deletes the form
+ /** Puts each leaf back under its original father, writes the cost of the
+  * design back into the Objective of every leaf, and deletes \p form, which
+  * must be the one returned by the last call to get_Benders_form() and must
+  * have no Solver attached any longer. The Variable of the leaves keep the
+  * values the solution of the form has left in them. */
+
+ void give_back_Benders_form( AbstractBlock * form );
+
+/*--------------------------------------------------------------------------*/
 /*----------------------- Methods for handling Solution --------------------*/
 /*--------------------------------------------------------------------------*/
  /// returns a TwoStageStochasticBlockSolution with the current solution
@@ -541,13 +605,6 @@ namespace SMSpp_di_unipi_it {
                           bool emptys = false ) override;
 
 /** @} ---------------------------------------------------------------------*/
-/*-------------------- Methods for handling Modification -------------------*/
-/*--------------------------------------------------------------------------*/
- /** @name Methods for handling Modification
-  *  @{ */
-
- void add_Modification( sp_Mod mod , ChnlName chnl = 0 ) override;
-
 /*--------------------------------------------------------------------------*/
 /*--------------------- PROTECTED PART OF THE CLASS ------------------------*/
 /*--------------------------------------------------------------------------*/
@@ -598,6 +655,9 @@ namespace SMSpp_di_unipi_it {
 
  ScenarioGenerator * scenario_generator = nullptr;
  ///< The ScenarioGenerator for automatic scenario application (owned)
+
+ std::vector< double > v_scenario_probability;
+ ///< The probability of each scenario, empty if there is no ScenarioGenerator
 
  std::vector< std::unique_ptr< AbstractPath > > v_paths_to_static_vars;
  ///< The AbstractPath to the affected here-and-now static ColVariable
@@ -651,6 +711,13 @@ namespace SMSpp_di_unipi_it {
 
  static constexpr unsigned char HasObj = 4;
  ///< third bit of AR == 1 if the Objective has been constructed
+
+ std::vector< Block * > v_Benders_father;
+ ///< the father of each leaf before get_Benders_form() moved it
+
+ std::vector< std::tuple< LinearFunction * , ColVariable * , double > >
+                                                        v_Benders_cost;
+ ///< the terms of the cost of the design taken out of the leaves
 
  SMSpp_insert_in_factory_h;
 
