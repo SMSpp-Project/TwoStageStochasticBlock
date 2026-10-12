@@ -770,7 +770,7 @@ class TwoStageStochasticBlockSolution : public Solution
    delete( si );
   }
 
-/*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution --*/
+/*- METHODS DESCRIBING THE BEHAVIOR OF A TwoStageStochasticBlockSolution ---*/
 
  void read( const Block * block ) override final;
 
