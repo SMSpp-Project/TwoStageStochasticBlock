@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `TwoStageStochasticBlockSolution` saves, writes back and serializes the
+  dual values of the non-anticipativity constraints (bit 2 of the
+  Configuration of `get_Solution()`, which threw before), and scales, sums
+  and clones them: written into the Block before a `LagrangianDualSolver`
+  is registered, they are its first multipliers, e.g., those of the
+  continuous relaxation
+
 ## [0.3.0] - 2026-10-09
 
 ### Added

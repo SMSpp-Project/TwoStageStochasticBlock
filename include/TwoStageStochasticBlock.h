@@ -92,6 +92,9 @@ namespace SMSpp_di_unipi_it {
 
  public:
 
+ /// the Solution reads and writes the duals of the here-and-now constraints
+ friend class TwoStageStochasticBlockSolution;
+
 /*--------------------------------------------------------------------------*/
 /*--------- CONSTRUCTING AND DESTRUCTING TwoStageStochasticBlock -----------*/
 /*--------------------------------------------------------------------------*/
@@ -905,10 +908,11 @@ class TwoStageStochasticBlockSolution : public Solution
  std::string f_scenario_solution_fprefix;
  ///< the prefix for the filenames containing the scenario solutions
 
- /*!!
-  boost::multi_array< double , 2 > v_dual_values;
-  dual values of non_anticipaticity constraints
-  */
+ std::vector< std::vector< double > > v_dual_values;
+ ///< dual values of the non-anticipativity constraints, one vector for each
+ ///< scenario t > 0 and group i of here-and-now variables (at position
+ ///< t * NumberHereAndNowGroups + i, the scenario being counted from 0), in
+ ///< the order of the variables of the group; empty if not saved
 
 /*--------------------------------------------------------------------------*/
 

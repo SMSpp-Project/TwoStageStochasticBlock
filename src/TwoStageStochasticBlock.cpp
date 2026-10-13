@@ -512,10 +512,8 @@ Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
  if( wsol & 2 )
   sol->v_scenario_solutions.resize( get_number_scenarios() );
 
- if( wsol & 4 )
-  throw( std::invalid_argument( "TwoStageStochasticBlock::get_Solution: "
-				"saving of dual variables not implemented yet"
-				) );
+ if( wsol & 4 )  // only marks them: read() sizes them on the constraints
+  sol->v_dual_values.resize( 1 );
  if( ! emptys )
   sol->read( this );
 
@@ -733,7 +731,12 @@ void TwoStageStochasticBlockSolution::deserialize(
   }
 
  // read the dual variables of non-anticipativity constraints - - - - - - - -
- //!! TODO
+ int tnd = 0;
+ deserialize_dim( group , "TotalNumberNonAnticipativityDuals" , tnd , true );
+ if( tnd )
+  ::deserialize< double >( group , "NonAnticipativityDuals" ,
+			   "NonAnticipativityDualsStart" , v_dual_values ,
+			   true );
 
  }  // end( TwoStageStochasticBlockSolution::deserialize )
 
@@ -772,7 +775,18 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
   }
 
  // read the dual variables of non-anticipativity constraints - - - - - - - -
- //!! TODO
+ // if the constraints have not been generated there is nothing to read
+ if( ! v_dual_values.empty() ) {
+  const auto & hnc = TSSB->here_and_now_const;
+  v_dual_values.clear();
+  for( std::size_t t = 0 ; t < hnc.shape()[ 0 ] ; ++t )
+   for( std::size_t i = 0 ; i < hnc.shape()[ 1 ] ; ++i ) {
+    std::vector< double > dv( hnc[ t ][ i ].size() );
+    for( std::size_t j = 0 ; j < dv.size() ; ++j )
+     dv[ j ] = hnc[ t ][ i ][ j ].get_dual();
+    v_dual_values.push_back( std::move( dv ) );
+    }
+  }
 
  }  // end( TwoStageStochasticBlockSolution::read )
 
@@ -819,7 +833,23 @@ void TwoStageStochasticBlockSolution::write( Block * block )
   }
 
  // write the dual variables of non-anticipativity constraints- - - - - - - -
- //!! TODO
+ if( ! v_dual_values.empty() ) {
+  auto & hnc = TSSB->here_and_now_const;
+  if( v_dual_values.size() != hnc.shape()[ 0 ] * hnc.shape()[ 1 ] )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				 "inconsistent number of groups of dual "
+				 "values of the here-and-now constraints" ) );
+  auto dv = v_dual_values.begin();
+  for( std::size_t t = 0 ; t < hnc.shape()[ 0 ] ; ++t )
+   for( std::size_t i = 0 ; i < hnc.shape()[ 1 ] ; ++i , ++dv ) {
+    if( dv->size() != hnc[ t ][ i ].size() )
+     throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				   "inconsistent number of dual values of "
+				   "the here-and-now constraints" ) );
+    for( std::size_t j = 0 ; j < dv->size() ; ++j )
+     hnc[ t ][ i ][ j ].set_dual( ( *dv )[ j ] );
+    }
+  }
 
  }  // end( TwoStageStochasticBlockSolution::write )
 
@@ -871,8 +901,19 @@ void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
    }
   }
 
- // serialize the scenario dual variables of non-anticipativity constraints - 
- //!! TODO
+ // serialize the dual variables of non-anticipativity constraints - - - - -
+ if( ! v_dual_values.empty() ) {
+  int tnd = 0;
+  for( const auto & dvi : v_dual_values )
+   tnd += dvi.size();
+
+  auto TND = group.addDim( "TotalNumberNonAnticipativityDuals" , tnd );
+  auto NDG = group.addDim( "NumberNonAnticipativityDualGroups" ,
+			   v_dual_values.size() );
+  ::serialize< double >( group , "NonAnticipativityDuals" ,
+			 netCDF::NcDouble() , "NonAnticipativityDualsStart" ,
+			 v_dual_values , TND , NDG );
+  }
 
  }  // end( TwoStageStochasticBlockSolution::serialize( NcGroup & ) )
 
@@ -893,7 +934,9 @@ TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::scale(
  for( auto ssi : sol->v_scenario_solutions )
   ssi->scale( factor );
 
- //!! TODO: deal with v_dual_values
+ for( auto & dvi : sol->v_dual_values )
+  for( auto & dvij : dvi )
+   dvij *= factor;
 
  return( sol );
 
@@ -933,8 +976,18 @@ void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
   v_scenario_solutions[ i ]->sum( TSSBS->v_scenario_solutions[ i ] ,
 				  multiplier );
 
- //!! TODO: deal with v_dual_values
- 
+ if( v_dual_values.size() != TSSBS->v_dual_values.size() )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				"inconsistent number of groups of dual values" ) );
+
+ for( std::size_t i = 0 ; i < v_dual_values.size() ; ++i ) {
+  if( v_dual_values[ i ].size() != TSSBS->v_dual_values[ i ].size() )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				 "inconsistent number of dual values" ) );
+  for( std::size_t j = 0 ; j < v_dual_values[ i ].size() ; ++j )
+   v_dual_values[ i ][ j ] += multiplier * TSSBS->v_dual_values[ i ][ j ];
+  }
+
  }  // end( TwoStageStochasticBlockSolution::sum )
 
 /*--------------------------------------------------------------------------*/
@@ -949,7 +1002,7 @@ TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::clone(
   sol->v_scenario_solutions.resize( v_scenario_solutions.size() );
   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i )
    sol->v_scenario_solutions[ i ] = v_scenario_solutions[ i ]->clone();
-  //!! sol->v_dual_values = v_dual_values;
+  sol->v_dual_values = v_dual_values;
   }
 
  return( sol );
