@@ -621,9 +621,10 @@ namespace SMSpp_di_unipi_it {
  /// helper method to scale a single scenario's objective by a weight
  /** Recursively scales the objective functions of \p block and of all its
   * nested Blocks by the given \p weight, supporting LinearFunction and
-  * DQuadFunction objectives. It is protected so that derived classes (such as
-  * MultiStageStochasticBlock) can reuse it to apply their own per-sub-Block
-  * weights. */
+  * DQuadFunction objectives: unless \p weight is 1, any other Objective
+  * throws std::invalid_argument, rather than being left with weight 1. It
+  * is protected so that derived classes (such as MultiStageStochasticBlock)
+  * can reuse it to apply their own per-sub-Block weights. */
  void scale_objective_recursive( Block * block , double weight );
 
  /// states that the Variable have been generated

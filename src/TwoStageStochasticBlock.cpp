@@ -570,10 +570,11 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
 						        double weight )
 {
- if( ! block )
+ if( ( ! block ) || ( weight == 1 ) )
   return;
 
- // Try to scale the objective of the current block, if present and supported
+ // scale the objective of the current block, if present: one that cannot be
+ // scaled is an error, since left as it is it would count with weight 1
  if( auto * obj = block->get_objective() ) {
   if( auto * freal_obj = dynamic_cast< FRealObjective * >( obj ) ) {
    auto * func = freal_obj->get_function();
@@ -627,7 +628,19 @@ void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
     const auto constant = quad_func->get_constant_term();
     quad_func->set_constant_term( constant * weight , eModBlck );
    }
+   else
+    if( func )
+     throw( std::invalid_argument( "TwoStageStochasticBlock::"
+             "scale_objective_recursive: the Objective of a " +
+             block->classname() + " is on a Function that is neither a "
+             "LinearFunction nor a DQuadFunction, which cannot be "
+             "weighted" ) );
   }
+  else
+   throw( std::invalid_argument( "TwoStageStochasticBlock::"
+           "scale_objective_recursive: the Objective of a " +
+           block->classname() + " is not an FRealObjective, which cannot be "
+           "weighted" ) );
  }
 
  // Recurse on nested blocks

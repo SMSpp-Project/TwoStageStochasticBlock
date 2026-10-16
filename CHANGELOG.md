@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TwoStageStochasticBlockSolution` took the k-th element after the first
   one, i.e., the wrong `Variable`, and possibly past the end of the group
 
+- `generate_objective()` throws `std::invalid_argument` when it has to weigh
+  by a probability other than 1 an Objective of a scenario, or of a Block
+  nested in it, that is not an `FRealObjective` on a `LinearFunction` or a
+  `DQuadFunction`: such an Objective was left as it was, i.e., it counted
+  with weight 1; the same holds for the weights `MultiStageStochasticBlock`
+  gives to its sub-Blocks
+
 ## [0.3.0] - 2026-10-09
 
 ### Added

@@ -204,6 +204,53 @@ bool test_path_subset( void ) {
  }
 
 /*--------------------------------------------------------------------------*/
+/// an Objective that cannot be weighted by the probability of its scenario
+/// must throw rather than count with weight 1, while a linear one is weighted
+/// and a probability of 1 needs no weighting
+
+bool test_unweighted_objective( void ) {
+ // a linear Objective is weighted
+ {
+  TestTSSB tssb;
+  tssb.add_scenario( 2 , true );
+  tssb.add_scenario( 2 , true );
+  tssb.set_probabilities( { 0.5 , 0.5 } );
+  tssb.generate_objective();
+  for( Index s = 0 ; s < 2 ; ++s ) {
+   auto obj = static_cast< FRealObjective * >(
+                                  tssb.get_sub_Block( s )->get_objective() );
+   auto lf = static_cast< LinearFunction * >( obj->get_function() );
+   if( lf->get_coefficient( 0 ) != 0.5 )
+    return( false );
+   }
+  }
+
+ // a polyhedral one cannot be, with a probability that is not 1 ...
+ {
+  TestTSSB tssb;
+  tssb.add_scenario( 2 , false );
+  tssb.add_scenario( 2 , false );
+  tssb.set_probabilities( { 0.5 , 0.5 } );
+  bool thrown = false;
+  try { tssb.generate_objective(); }
+  catch( const std::invalid_argument & ) { thrown = true; }
+  if( ! thrown )
+   return( false );
+  }
+
+ // ... while with a probability of 1 there is nothing to weight
+ {
+  TestTSSB tssb;
+  tssb.add_scenario( 2 , false );
+  tssb.set_probabilities( { 1.0 } );
+  try { tssb.generate_objective(); }
+  catch( const std::exception & ) { return( false ); }
+  }
+
+ return( true );
+ }
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- MAIN -----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -251,9 +298,18 @@ int main( int argc , char ** argv )
   return( 1 );
   }
 
- // Test 4: Load from nc4 file if provided
+ // Test 4: Objective that cannot be weighted
+ cout << "Test 4: Objective that cannot be weighted...";
+ if( test_unweighted_objective() )
+  cout << " SUCCESS" << endl;
+ else {
+  cout << " FAILED" << endl;
+  return( 1 );
+  }
+
+ // Test 5: Load from nc4 file if provided
  if( argc > 1 ) {
-  cout << "Test 4: Loading from " << argv[ 1 ] << "...";
+  cout << "Test 5: Loading from " << argv[ 1 ] << "...";
   try {
    netCDF::NcFile dataFile( argv[ 1 ] , netCDF::NcFile::read );
    auto * block = Block::new_Block( dataFile , nullptr );
