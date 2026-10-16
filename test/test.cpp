@@ -251,6 +251,22 @@ bool test_unweighted_objective( void ) {
  }
 
 /*--------------------------------------------------------------------------*/
+/// a first-stage path to an element that does not exist, here past the end
+/// of x, must throw rather than tie a Variable that is not there
+
+bool test_path_past_end( void ) {
+ TestTSSB tssb;
+ auto x0 = tssb.add_scenario( 4 , true );
+ tssb.add_scenario( 4 , true );
+ tssb.set_here_and_now( x0 , { 0 , 4 } );
+
+ tssb.generate_abstract_variables();
+ try { tssb.generate_abstract_constraints(); }
+ catch( const std::invalid_argument & ) { return( true ); }
+ return( false );
+ }
+
+/*--------------------------------------------------------------------------*/
 /*--------------------------------- MAIN -----------------------------------*/
 /*--------------------------------------------------------------------------*/
 
@@ -307,9 +323,18 @@ int main( int argc , char ** argv )
   return( 1 );
   }
 
- // Test 5: Load from nc4 file if provided
+ // Test 5: first-stage path past the end of its group
+ cout << "Test 5: first-stage path past the end...";
+ if( test_path_past_end() )
+  cout << " SUCCESS" << endl;
+ else {
+  cout << " FAILED" << endl;
+  return( 1 );
+  }
+
+ // Test 6: Load from nc4 file if provided
  if( argc > 1 ) {
-  cout << "Test 5: Loading from " << argv[ 1 ] << "...";
+  cout << "Test 6: Loading from " << argv[ 1 ] << "...";
   try {
    netCDF::NcFile dataFile( argv[ 1 ] , netCDF::NcFile::read );
    auto * block = Block::new_Block( dataFile , nullptr );

@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with weight 1; the same holds for the weights `MultiStageStochasticBlock`
   gives to its sub-Blocks
 
+- `generate_abstract_constraints()` throws `std::invalid_argument` when an
+  element of a here-and-now `AbstractPath` is no `ColVariable` of a
+  scenario, e.g., an index past the end of its group, rather than building a
+  non-anticipativity constraint on a null `Variable`, which crashed
+
 ## [0.3.0] - 2026-10-09
 
 ### Added

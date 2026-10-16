@@ -121,10 +121,17 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
      v_paths_to_static_vars[ i ]->get_number_elements< ColVariable >( block );
    here_and_now_vars[ t ][ i ].resize( number_variables );
    // the j-th element of the path, which with an explicit subset is not the
-   // j-th one after the first
-   for( int j = 0 ; j < number_variables ; j++ )
+   // j-th one after the first; an element that does not exist, e.g., an
+   // index past the end of its group, would make a constraint on nothing
+   for( int j = 0 ; j < number_variables ; j++ ) {
     here_and_now_vars[ t ][ i ][ j ] =
      v_paths_to_static_vars[ i ]->get_element< ColVariable >( block , j );
+    if( ! here_and_now_vars[ t ][ i ][ j ] )
+     throw( std::invalid_argument( "TwoStageStochasticBlock::"
+             "generate_abstract_constraints: element " + std::to_string( j ) +
+             " of the here-and-now path " + std::to_string( i ) +
+             " is no ColVariable of scenario " + std::to_string( t ) ) );
+    }
   }
  }
 
