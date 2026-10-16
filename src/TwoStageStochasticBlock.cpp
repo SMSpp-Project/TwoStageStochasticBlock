@@ -120,11 +120,11 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
    auto number_variables =
      v_paths_to_static_vars[ i ]->get_number_elements< ColVariable >( block );
    here_and_now_vars[ t ][ i ].resize( number_variables );
-   // pointer to the first ColVariable of a contiguous structure,
-   // i.e., a std::vector or boost::multi_array (since *static* vars)
-   auto * elem = v_paths_to_static_vars[ i ]->get_element< ColVariable >( block );
+   // the j-th element of the path, which with an explicit subset is not the
+   // j-th one after the first
    for( int j = 0 ; j < number_variables ; j++ )
-    here_and_now_vars[ t ][ i ][ j ] = elem + j;
+    here_and_now_vars[ t ][ i ][ j ] =
+     v_paths_to_static_vars[ i ]->get_element< ColVariable >( block , j );
   }
  }
 
@@ -295,12 +295,10 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
   // Get the number of variables this path points to
   auto num_vars = path->get_number_elements< ColVariable >( scenario_0_block );
 
-  // Get pointer to the first variable in the contiguous structure
-  auto * first_var = path->get_element< ColVariable >( scenario_0_block );
-
   // Add all variables from this path to our result vector
   for( Index j = 0 ; j < num_vars ; ++j )
-   first_stage_vars.push_back( first_var + j );
+   first_stage_vars.push_back(
+                    path->get_element< ColVariable >( scenario_0_block , j ) );
  }
 
  return( first_stage_vars );
@@ -320,9 +318,8 @@ AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
 
   for( const auto & p : v_paths_to_static_vars ) {
    const auto nv = p->get_number_elements< ColVariable >( leaf );
-   auto e = p->get_element< ColVariable >( leaf );
    for( Index j = 0 ; j < nv ; ++j )
-    xk[ l ].push_back( e + j );
+    xk[ l ].push_back( p->get_element< ColVariable >( leaf , j ) );
    }
   }
 
@@ -757,9 +754,9 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
   for( std::size_t i = 0 ; i < ptshanv.size() ; ++i ) {
    auto nv = ptshanv[ i ]->get_number_elements< ColVariable >( b0 );
    v_here_and_now[ i ].resize( nv );
-   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
-   for( std::size_t j = 0 ; j < nv ; ++j , ++elem )
-    v_here_and_now[ i ][ j ] = elem->get_value();
+   for( std::size_t j = 0 ; j < nv ; ++j )
+    v_here_and_now[ i ][ j ] =
+     ptshanv[ i ]->get_element< ColVariable >( b0 , j )->get_value();
    }
   }
 
@@ -815,9 +812,9 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 				  "inconsistent number of h&n variables "
 				  "in group " + std::to_string( i ) ) );
 
-   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
-   for( Block::Index j = 0 ; j < nv ; ++j , ++elem )
-    elem->set_value( v_here_and_now[ i ][ j ] );
+   for( Block::Index j = 0 ; j < nv ; ++j )
+    ptshanv[ i ]->get_element< ColVariable >( b0 , j )->set_value(
+                                                    v_here_and_now[ i ][ j ] );
    }
   }
 

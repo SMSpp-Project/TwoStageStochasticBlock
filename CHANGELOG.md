@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is registered, they are its first multipliers, e.g., those of the
   continuous relaxation
 
+### Fixed
+
+- a here-and-now `AbstractPath` selecting an explicit, non-contiguous subset
+  of a group of `ColVariable` gives the elements of the subset: the
+  non-anticipativity constraints, `get_first_stage_variables()`,
+  `get_Benders_form()` and the here-and-now values of
+  `TwoStageStochasticBlockSolution` took the k-th element after the first
+  one, i.e., the wrong `Variable`, and possibly past the end of the group
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
