@@ -1,5 +1,11 @@
 # TwoStageStochasticBlock
 
+[![Pipeline](https://gitlab.com/smspp/twostagestochasticblock/badges/develop/pipeline.svg)](https://gitlab.com/smspp/twostagestochasticblock/-/pipelines?ref=develop)
+[![Release](https://gitlab.com/smspp/twostagestochasticblock/-/badges/release.svg)](https://gitlab.com/smspp/twostagestochasticblock/-/releases)
+[![Documentation](https://img.shields.io/badge/docs-Doxygen-blue)](https://smspp.gitlab.io/smspp-project/)
+[![C++ Standard](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL_v3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0)
+
 SMS++ Block for two-stage stochastic programming problems.
 
 The `TwoStageStochasticBlock` is a `:Block` that represents a two-stage
