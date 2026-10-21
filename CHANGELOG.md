@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is registered, they are its first multipliers, e.g., those of the
   continuous relaxation
 
+- the C++20 module `smspp.twostagestochasticblock`
+  (`src/TwoStageStochasticBlock.cppm`), which exports every name that the
+  headers declare at namespace scope and re-exports `smspp.stochasticblock`,
+  so that a source file can write `import smspp.twostagestochasticblock;` in
+  place of the `#include` of the headers; it is built with the CMake option
+  `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::TwoStageStochasticBlock_module`
+
 ### Fixed
 
 - a here-and-now `AbstractPath` selecting an explicit, non-contiguous subset
