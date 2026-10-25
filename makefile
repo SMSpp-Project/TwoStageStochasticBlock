@@ -36,6 +36,12 @@ TSSBkINC = -I$(TSSBkSDR)/include
 
 TSSBkH   = $(TSSBkSDR)/include/TwoStageStochasticBlock.h
 
+# the C++20 module smspp.twostagestochasticblock - - - - - - - - - - - - - -
+# [see makefile-mod of SMS++]
+
+$(eval $(call SMSppMODrule,TSSBk,$(TSSBkSDR),TwoStageStochasticBlock,\
+	smspp.twostagestochasticblock,$(StcBlkMOD)))
+
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 clean::
