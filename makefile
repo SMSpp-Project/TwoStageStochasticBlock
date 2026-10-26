@@ -40,7 +40,7 @@ TSSBkH   = $(TSSBkSDR)/include/TwoStageStochasticBlock.h
 # [see makefile-mod of SMS++]
 
 $(eval $(call SMSppMODrule,TSSBk,$(TSSBkSDR),TwoStageStochasticBlock,\
-	smspp.twostagestochasticblock,$(StcBlkMOD)))
+	smspp.twostagestochasticblock,StcBlk))
 
 # clean - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
