@@ -63,11 +63,9 @@ namespace SMSpp_di_unipi_it {
  * - Creating N copies of the inner deterministic Block (one per scenario)
  * - Adding non-anticipativity constraints to ensure first-stage variables
  *   are the same across all scenarios,
- * - Combining objectives weighted by probabilities.
- *
- *   TODO: We need Objective::scale() to be implemented. Currently we have a
- * workaround for LinearFunction objectives (like
- * CapacitatedFacilityLocationBlock or UCBlock) that should be replaced.
+ * - Giving the Objective of each copy the probability of its scenario as its
+ *   weight [see Block::set_objective_weight()], times the weight it has of
+ *   its own, which every Solver of the TwoStageStochasticBlock applies.
  *
  * The class uses serialization/deserialization to create copies of the inner
  * Block, which works for all Block types without requiring them to implement
@@ -157,13 +155,10 @@ namespace SMSpp_di_unipi_it {
  /// generate the objective of the TwoStageStochasticBlock
  /** Generates the objective function for the two-stage stochastic block.
   *
-  * This method first generates objectives for all scenario blocks, then
-  * scales each scenario's objective by its probability weight (if a
-  * ScenarioGenerator is available). Finally, it calls the base class
-  * method to aggregate the weighted objectives.
-  *
-  * If no ScenarioGenerator is available, scenarios are implicitly given
-  * equal weights (unscaled objectives are summed).
+  * This method generates the objectives of all the scenario blocks, whose
+  * probability is the weight of their Objective [see deserialize()], and
+  * then calls the base class method. If no ScenarioGenerator is available,
+  * the scenarios have no probability and their objectives are summed.
   *
   * @param objc optional Configuration for objective generation
   */
@@ -304,6 +299,14 @@ namespace SMSpp_di_unipi_it {
    v_Block.push_back( block_copy );
   }
 
+  // the probability of each scenario is the weight of the Objective of its
+  // copy [see Block::set_objective_weight()], times the one it has read;
+  // nobody listens to the copies yet, hence the weight can be set
+  for( Index i = 0 ; i < v_scenario_probability.size() ; ++i )
+   if( v_scenario_probability[ i ] != 1 )
+    v_Block[ i ]->set_objective_weight( v_Block[ i ]->get_objective_weight()
+                                        * v_scenario_probability[ i ] );
+
   // Restore the original inner block, re-pointing the DataMapping callers
   // (which the scenario loop above left inside the last block copy) back
   // into it
@@ -436,13 +439,14 @@ namespace SMSpp_di_unipi_it {
 /*--------------------------------------------------------------------------*/
 
  /// returns the probability of the \p leaf -th realization
- /** Returns the weight that generate_objective() gives to the Objective of
-  * the \p leaf -th realization [see get_leaf_block()], i.e., the probability
-  * of its scenario, or 1 if there is no ScenarioGenerator, in which case the
-  * Objective is not scaled. Whoever takes the leaves away before
-  * generate_objective() has scaled them, to weigh each of them itself, reads
-  * here the weight to use. For a plain TwoStageStochasticBlock the leaves are
-  * the scenarios, and \p leaf is in [ 0 , get_number_leaves() ). */
+ /** Returns the probability of the scenario of the \p leaf -th realization
+  * [see get_leaf_block()], or 1 if there is no ScenarioGenerator. The
+  * probability is not written in the Objective of the leaf: it is the weight
+  * of the Objective of the scenario [see Block::set_objective_weight()],
+  * and the factor by which the Objective of the leaf enters this
+  * TwoStageStochasticBlock is Block::get_objective_weight( this ) of the
+  * Block of that Objective. For a plain TwoStageStochasticBlock the leaves
+  * are the scenarios, and \p leaf is in [ 0 , get_number_leaves() ). */
 
  virtual double get_leaf_probability( Index leaf ) const {
   return( leaf < v_scenario_probability.size() ?
@@ -456,7 +460,10 @@ namespace SMSpp_di_unipi_it {
   * apply scenario data to block copies. The generator must provide scenarios
   * compatible with the StochasticBlock's DataMappings.
   * The TwoStageStochasticBlock takes ownership of the generator and will
-  * delete it in the destructor.
+  * delete it in the destructor. If the scenarios are there already, the
+  * probabilities of the generator become the weights of their Objective
+  * [see Block::set_objective_weight()], in place of the ones they had, which
+  * throws std::logic_error if a Solver is attached to them.
   *
   * @param generator Pointer to the ScenarioGenerator
   */
@@ -617,15 +624,6 @@ namespace SMSpp_di_unipi_it {
 /*--------------------------------------------------------------------------*/
 /*-------------------------- PROTECTED METHODS -----------------------------*/
 /*--------------------------------------------------------------------------*/
-
- /// helper method to scale a single scenario's objective by a weight
- /** Recursively scales the objective functions of \p block and of all its
-  * nested Blocks by the given \p weight, supporting LinearFunction and
-  * DQuadFunction objectives: unless \p weight is 1, any other Objective
-  * throws std::invalid_argument, rather than being left with weight 1. It
-  * is protected so that derived classes (such as MultiStageStochasticBlock)
-  * can reuse it to apply their own per-sub-Block weights. */
- void scale_objective_recursive( Block * block , double weight );
 
  /// states that the Variable have been generated
  void set_variables_generated( void ) { AR |= HasVar; }

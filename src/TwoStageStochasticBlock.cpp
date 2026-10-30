@@ -26,8 +26,6 @@
 
 #include "DataMapping.h"
 
-#include "DQuadFunction.h"
-
 #include "FRealObjective.h"
 
 #include "FRowConstraint.h"
@@ -218,35 +216,8 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc )
   if( block ) block->generate_objective( objc );
  }
 
- // Scale each scenario block's objective by its probability
- if( scenario_generator && ( ! v_Block.empty() ) ) {
-  // Check if pool is already initialized to avoid re-initialization overhead
-  if( scenario_generator->is_pool_initialized() ) {
-   // Reset to the beginning of existing pool
-   scenario_generator->reset_pool();
-  }
-  else {
-   // Initialize the scenario generator to iterate through all scenarios
-   scenario_generator->init_representative_pool( f_number_scenarios );
-  }
-
-  Index scenario_idx = 0;
-
-  // Use do-while pattern to iterate through scenarios
-  do {
-   if( ( scenario_idx < v_Block.size() ) && v_Block[ scenario_idx ] ) {
-    // Get probability for current scenario
-    double prob = scenario_generator->get_current_scenario_probability();
-    // Scale this scenario's objective
-    scale_objective_recursive( v_Block[ scenario_idx ] , prob );
-   }
-   scenario_idx++;
-  } while( scenario_generator->next_scenario() );
- }
- // Note: If no scenario_generator, objectives remain unscaled (implicitly
- // equal weights)
-
- // Now call base class to aggregate the (already scaled) objectives
+ // the probabilities are the weights of the Objective of the scenarios
+ // [see deserialize()], which the Solver apply: the objectives are summed
  Block::generate_objective( objc );
 
  set_objective_generated();
@@ -383,10 +354,14 @@ AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
      continue;
 
     if( auto lf = dynamic_cast< LinearFunction * >( obj->get_function() ) ) {
+     // the term enters the master with the weight of its Objective in this
+     // Block [see Block::set_objective_weight()], the probability of the
+     // scenario comprised
+     const double w = obj->get_Block()->get_objective_weight( this );
      const auto & vv = lf->get_v_var();
      for( Index i = 0 ; i < vv.size() ; ++i )
       if( vv[ i ].first == var ) {
-       cost[ j ] += vv[ i ].second;
+       cost[ j ] += w * vv[ i ].second;
        v_Benders_cost.emplace_back( lf , var , vv[ i ].second );
        lf->remove_variable( i );
        break;
@@ -574,91 +549,6 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
-						        double weight )
-{
- if( ( ! block ) || ( weight == 1 ) )
-  return;
-
- // scale the objective of the current block, if present: one that cannot be
- // scaled is an error, since left as it is it would count with weight 1
- if( auto * obj = block->get_objective() ) {
-  if( auto * freal_obj = dynamic_cast< FRealObjective * >( obj ) ) {
-   auto * func = freal_obj->get_function();
-
-   if( auto * linear_func = dynamic_cast< LinearFunction * >( func ) ) {
-
-    // Scale all variable coefficients
-    const Index n_vars = linear_func->get_num_active_var();
-    if( n_vars > 0 ) {
-     Function::Vec_FunctionValue scaled_coeffs;
-     scaled_coeffs.reserve( n_vars );
-
-     for( Index i = 0 ; i < n_vars ; ++i ) {
-      Function::FunctionValue coeff = linear_func->get_coefficient( i );
-      scaled_coeffs.push_back( coeff * weight );
-     }
-
-     // Apply scaled coefficients using modify_coefficients
-     linear_func->modify_coefficients(
-       std::move( scaled_coeffs ) ,
-       Range( 0 , n_vars ) ,
-       eModBlck );
-    }
-
-    // Scale the constant term
-    const auto constant = linear_func->get_constant_term();
-    linear_func->set_constant_term( constant * weight , eModBlck );
-   }
-   else if( auto * quad_func = dynamic_cast< DQuadFunction * >( func ) ) {
-
-    // Scale linear and quadratic coefficients of every active Variable
-    const Index n_vars = quad_func->get_num_active_var();
-    if( n_vars > 0 ) {
-     DQuadFunction::v_coeff scaled_lin;
-     DQuadFunction::v_coeff scaled_quad;
-     scaled_lin.reserve( n_vars );
-     scaled_quad.reserve( n_vars );
-
-     for( Index i = 0 ; i < n_vars ; ++i ) {
-      scaled_lin.push_back(
-       quad_func->get_linear_coefficient( i ) * weight );
-      scaled_quad.push_back(
-       quad_func->get_quadratic_coefficient( i ) * weight );
-     }
-
-     quad_func->modify_terms( scaled_quad.cbegin() , scaled_lin.cbegin() ,
-                              Range( 0 , n_vars ) , eModBlck );
-    }
-
-    // Scale the constant term
-    const auto constant = quad_func->get_constant_term();
-    quad_func->set_constant_term( constant * weight , eModBlck );
-   }
-   else
-    if( func )
-     throw( std::invalid_argument( "TwoStageStochasticBlock::"
-             "scale_objective_recursive: the Objective of a " +
-             block->classname() + " is on a Function that is neither a "
-             "LinearFunction nor a DQuadFunction, which cannot be "
-             "weighted" ) );
-  }
-  else
-   throw( std::invalid_argument( "TwoStageStochasticBlock::"
-           "scale_objective_recursive: the Objective of a " +
-           block->classname() + " is not an FRealObjective, which cannot be "
-           "weighted" ) );
- }
-
- // Recurse on nested blocks
- const auto & nested_blocks = block->get_nested_Blocks();
- for( auto * nested : nested_blocks )
-  scale_objective_recursive( nested , weight );
-
-}  // end( TwoStageStochasticBlock::scale_objective_recursive )
-
-/*--------------------------------------------------------------------------*/
-
 void TwoStageStochasticBlock::set_scenario_generator(
 						        ScenarioGenerator * generator )
 {
@@ -667,9 +557,37 @@ void TwoStageStochasticBlock::set_scenario_generator(
 
  scenario_generator = generator;
 
- // Note: Scenarios are applied during block creation in deserialize().
- // This method is primarily for setting the generator before deserialization
- // or for future use cases where scenarios might need to be changed.
+ // the data of the scenarios are applied when they are created [see
+ // deserialize()]; to the scenarios already there, if any, the generator
+ // gives their probability, which replaces the one they had in the weight
+ // of their Objective [see Block::set_objective_weight()]
+ if( ( ! scenario_generator ) || v_Block.empty() )
+  return;
+
+ if( scenario_generator->is_pool_initialized() )
+  scenario_generator->reset_pool();
+ else
+  scenario_generator->init_representative_pool( f_number_scenarios );
+
+ std::vector< double > prob;
+ prob.reserve( v_Block.size() );
+ for( Index i = 0 ; i < v_Block.size() ; ++i ) {
+  prob.push_back( scenario_generator->get_current_scenario_probability() );
+  if( ( i + 1 < v_Block.size() ) && ( ! scenario_generator->next_scenario() ) )
+   throw( std::invalid_argument( "TwoStageStochasticBlock::"
+				 "set_scenario_generator: fewer scenarios "
+				 "than Block" ) );
+  }
+
+ for( Index i = 0 ; i < v_Block.size() ; ++i ) {
+  const double old = ( i < v_scenario_probability.size() ) ?
+                     v_scenario_probability[ i ] : 1;
+  if( prob[ i ] != old )
+   v_Block[ i ]->set_objective_weight( v_Block[ i ]->get_objective_weight()
+                                       / old * prob[ i ] );
+  }
+ v_scenario_probability = std::move( prob );
+
 }  // end( TwoStageStochasticBlock::set_scenario_generator )
 
 /*--------------------------------------------------------------------------*/

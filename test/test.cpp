@@ -204,50 +204,41 @@ bool test_path_subset( void ) {
  }
 
 /*--------------------------------------------------------------------------*/
-/// an Objective that cannot be weighted by the probability of its scenario
-/// must throw rather than count with weight 1, while a linear one is weighted
-/// and a probability of 1 needs no weighting
+/// the probability of a scenario is the weight of its Objective [see
+/// Block::set_objective_weight()], whatever the Objective, its data being
+/// left as they are; a probability of 1 is a weight of 1
 
 bool test_unweighted_objective( void ) {
- // a linear Objective is weighted
- {
+ for( bool linear : { true , false } ) {
   TestTSSB tssb;
-  tssb.add_scenario( 2 , true );
-  tssb.add_scenario( 2 , true );
-  tssb.set_probabilities( { 0.5 , 0.5 } );
+  tssb.add_scenario( 2 , linear );
+  tssb.add_scenario( 2 , linear );
+  tssb.set_probabilities( { 0.25 , 0.75 } );
   tssb.generate_objective();
-  for( Index s = 0 ; s < 2 ; ++s ) {
+  for( Index s = 0 ; s < 2 ; ++s )
+   if( tssb.get_sub_Block( s )->get_objective_weight() !=
+       ( s ? 0.75 : 0.25 ) )
+    return( false );
+  if( linear ) {
    auto obj = static_cast< FRealObjective * >(
-                                  tssb.get_sub_Block( s )->get_objective() );
-   auto lf = static_cast< LinearFunction * >( obj->get_function() );
-   if( lf->get_coefficient( 0 ) != 0.5 )
+                                  tssb.get_sub_Block( 0 )->get_objective() );
+   if( static_cast< LinearFunction * >( obj->get_function() )->
+                                               get_coefficient( 0 ) != 1 )
     return( false );
    }
   }
 
- // a polyhedral one cannot be, with a probability that is not 1 ...
- {
-  TestTSSB tssb;
-  tssb.add_scenario( 2 , false );
-  tssb.add_scenario( 2 , false );
-  tssb.set_probabilities( { 0.5 , 0.5 } );
-  bool thrown = false;
-  try { tssb.generate_objective(); }
-  catch( const std::invalid_argument & ) { thrown = true; }
-  if( ! thrown )
-   return( false );
-  }
-
- // ... while with a probability of 1 there is nothing to weight
- {
-  TestTSSB tssb;
-  tssb.add_scenario( 2 , false );
-  tssb.set_probabilities( { 1.0 } );
-  try { tssb.generate_objective(); }
-  catch( const std::exception & ) { return( false ); }
-  }
-
- return( true );
+ // a probability of 1, and a generator that replaces another
+ TestTSSB tssb;
+ tssb.add_scenario( 2 , false );
+ tssb.set_probabilities( { 1.0 } );
+ if( tssb.get_sub_Block( 0 )->get_objective_weight() != 1 )
+  return( false );
+ tssb.add_scenario( 2 , true );
+ tssb.set_probabilities( { 0.5 , 0.5 } );
+ tssb.set_probabilities( { 0.2 , 0.8 } );
+ return( ( tssb.get_sub_Block( 0 )->get_objective_weight() == 0.2 ) &&
+         ( tssb.get_sub_Block( 1 )->get_objective_weight() == 0.8 ) );
  }
 
 /*--------------------------------------------------------------------------*/
@@ -314,8 +305,8 @@ int main( int argc , char ** argv )
   return( 1 );
   }
 
- // Test 4: Objective that cannot be weighted
- cout << "Test 4: Objective that cannot be weighted...";
+ // Test 4: probabilities as the weights of the Objective
+ cout << "Test 4: probabilities as weights...";
  if( test_unweighted_objective() )
   cout << " SUCCESS" << endl;
  else {

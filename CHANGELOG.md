@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the probability of a scenario is the weight of the Objective of its Block
+  [see `Block::set_objective_weight()`], times the one the Block has read,
+  given in `deserialize()`, rather than being multiplied into the
+  coefficients of its Objective (`scale_objective_recursive()` is gone):
+  any Objective is weighed, not only a `LinearFunction` or a
+  `DQuadFunction`, and the data of the scenarios are those of the file;
+  the Benders form moves the first-stage costs into the master with the
+  weights
+
 - the pipeline builds the module also with its makefiles, after CMake, and
   runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
 
