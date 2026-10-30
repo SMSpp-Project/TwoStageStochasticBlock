@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `TwoStageStochasticBlockSolution::serialize()` writes the solutions of
+  the scenarios by way of `write_via_memory()`, in a time linear in the
+  number of scenarios: the `Solution` of 200 scenarios of 88 units each,
+  some 37000 variables in 18000 groups, took minutes to be written
+
 - the probability of a scenario is the weight of the Objective of its Block
   [see `Block::set_objective_weight()`], times the one the Block has read,
   given in `deserialize()`, rather than being multiplied into the

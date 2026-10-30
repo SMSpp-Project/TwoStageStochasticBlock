@@ -821,11 +821,12 @@ void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
   auto NS = group.addDim( "NumberScenarios" , v_scenario_solutions.size() );
 
   if( f_scenario_solution_fprefix.empty() ) {  // group-based format
-   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
-    std::string sgn = "ScenarioSolution_" + std::to_string( i );
-    auto sg = group.addGroup( sgn );
-    v_scenario_solutions[ i ]->serialize( sg );
-    }
+   std::vector< std::string > names( v_scenario_solutions.size() );
+   for( std::size_t i = 0 ; i < names.size() ; ++i )
+    names[ i ] = "ScenarioSolution_" + std::to_string( i );
+   write_via_memory( group , names ,
+		     [ & ]( std::size_t i , netCDF::NcGroup & g ) {
+		      v_scenario_solutions[ i ]->serialize( g ); } );
    }
   else {                                       // file-based format
    for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
