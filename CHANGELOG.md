@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
 - `TwoStageStochasticBlockSolution::serialize()` writes the solutions of
   the scenarios by way of `write_via_memory()`, in a time linear in the
   number of scenarios: the `Solution` of 200 scenarios of 88 units each,
