@@ -630,7 +630,27 @@ void TwoStageStochasticBlockSolution::deserialize(
   ::deserialize( group , f_scenario_solution_fprefix ,
 		 "ScenarioSolutionPrefix" , true );
 
-  if( f_scenario_solution_fprefix.empty() ) {
+  if( auto stack = group.getGroup( "ScenarioSolution" ) ;
+      f_scenario_solution_fprefix.empty() && ( ! stack.isNull() ) ) {
+   // the solutions of the scenarios stacked [see write_stacked()]
+   if( stacked_size( stack ) != std::size_t( NS ) )
+    throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  "ScenarioSolution stacks " +
+			  std::to_string( stacked_size( stack ) ) +
+			  " solutions instead of " + std::to_string( NS ) ) );
+   v_scenario_solutions.resize( NS );
+   for( int i = 0 ; i < NS ; ++i )
+    read_stacked( stack , i , [ & ]( const netCDF::NcGroup & sg ) {
+     v_scenario_solutions[ i ] = Solution::new_Solution( sg );
+     if( ! v_scenario_solutions[ i ] )
+      throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  "deserialize of the stacked solution " +
+			  std::to_string( i ) + " failed" ) );
+     } );
+   }
+  else if( f_scenario_solution_fprefix.empty() ) {
    for( int i = 0 ; i < NS ; ++i ) {
     std::string sgn = "ScenarioSolution_" + std::to_string( i );
     auto sg = group.getGroup( sgn );
@@ -824,9 +844,11 @@ void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
    std::vector< std::string > names( v_scenario_solutions.size() );
    for( std::size_t i = 0 ; i < names.size() ; ++i )
     names[ i ] = "ScenarioSolution_" + std::to_string( i );
-   write_via_memory( group , names ,
-		     [ & ]( std::size_t i , netCDF::NcGroup & g ) {
-		      v_scenario_solutions[ i ]->serialize( g ); } );
+   // stacked in one group, so that the groups of the file are those of one
+   // scenario [see write_stacked()]
+   write_stacked( group , "ScenarioSolution" , names ,
+		  [ & ]( std::size_t i , netCDF::NcGroup & g ) {
+		   v_scenario_solutions[ i ]->serialize( g ); } );
    }
   else {                                       // file-based format
    for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {

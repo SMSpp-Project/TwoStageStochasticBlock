@@ -34,11 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installation guide of the wiki (Installing-SMS++), keeping the names
   of the packages of the module
 
-- `TwoStageStochasticBlockSolution::serialize()` writes the solutions of
-  the scenarios by way of `write_via_memory()`, in a time linear in the
-  number of scenarios: the `Solution` of 200 scenarios of 88 units each,
-  some 37000 variables in 18000 groups, took minutes to be written
-
 - the probability of a scenario is the weight of the Objective of its Block
   [see `Block::set_objective_weight()`], times the one the Block has read,
   given in `deserialize()`, rather than being multiplied into the
@@ -57,6 +52,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `clang-scan-deps`) or MSVC 19.34, or a module it imports that is not
   there: the option is turned off with a warning that says why, and the
   build goes on with the headers [see `cmake/CheckModule.cmake` of SMS++]
+
+- `TwoStageStochasticBlockSolution::serialize()` writes the solutions of
+  the scenarios stacked in the group `ScenarioSolution` [see
+  `write_stacked()` of SMS++], in a time linear in the number of scenarios
+  (the `Solution` of 200 scenarios of 88 units each took minutes to be
+  written) and with the groups of the solution of one scenario however many
+  the scenarios, rather than going over the 32767 groups a netCDF file
+  holds (that of 20 scenarios of 88 units each went from 1821 groups to
+  10); `deserialize()` still reads the groups `ScenarioSolution_k`
 
 ### Fixed
 

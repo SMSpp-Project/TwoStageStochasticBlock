@@ -823,6 +823,11 @@ class TwoStageStochasticBlockSolution : public Solution
   *     into the file with name "ScenarioSolutionPrefix_T.nc4"; these files
   *     must then exist;
   *
+  *   = or the group "ScenarioSolution", in which the Solution objects of
+  *     all the scenarios are stacked [see write_stacked() in SMSnetCDF.h],
+  *     so that the file has the groups of the Solution of one scenario (of
+  *     one per netCDF tree, if they differ), however many the scenarios;
+  *
   *   = or the groups "ScenarioSolution_T" for T = 0, ..., NumberScenarios
   *     - 1, each containing the Solution object for the sub-Block
   *     corresponding to scenario T. The groups are optional but either they
@@ -830,12 +835,12 @@ class TwoStageStochasticBlockSolution : public Solution
   *     Solution_0: if it exists then all other ones, and the dimension
   *     "NumberScenarios", must exist.
   *
-  *   During deserialize(), the first form is checked first, if it does not
-  *   exist the second one is checked, if none exist no Solution data is
+  *   During deserialize(), the first form is checked first, then the
+  *   second and then the third, and if none exists no Solution data is
   *   present. During serialize(), the format is chosen by the current value
   *   of the f_scenario_solution_fprefix field (see set_inner_Config()): if
-  *   it is empty() then the second (group-based) format is used, otherwise
-  *   the first (file-based) is.
+  *   it is empty() then the second (stacked) format is used, otherwise the
+  *   first (file-based) is.
   *
   * - The variable "DualValues",  of type netCDF::NcDouble indiced over both
   *   the dimensions "TotalNumberHereAndNow" and "NumberScenarios", such that
