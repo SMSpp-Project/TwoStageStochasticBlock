@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Added
+
+- the makefiles build the C++20 module `smspp.twostagestochasticblock` when
+  `SMSppMOD` is not empty (e.g., `make SMSppMOD=1`), with clang++ 16 or
+  later [see `lib/makefile-mod` of SMS++]
+
+- `TwoStageStochasticBlockSolution` saves, writes back and serializes the
+  dual values of the non-anticipativity constraints (bit 2 of the
+  Configuration of `get_Solution()`, which threw before), and scales, sums
+  and clones them: written into the Block before a `LagrangianDualSolver`
+  is registered, they are its first multipliers, e.g., those of the
+  continuous relaxation
+
+- the C++20 module `smspp.twostagestochasticblock`
+  (`src/TwoStageStochasticBlock.cppm`), which exports every name that the
+  headers declare at namespace scope and re-exports `smspp.stochasticblock`,
+  so that a source file can write `import smspp.twostagestochasticblock;` in
+  place of the `#include` of the headers; it is built with the CMake option
+  `SMSpp_BUILD_MODULE`, as the target
+  `SMS++::TwoStageStochasticBlock_module`
+
+### Changed
+
+- the README leaves the channels that distribute SMS++ to the
+  installation guide of the wiki (Installing-SMS++), keeping the names
+  of the packages of the module
+
+- the probability of a scenario is the weight of the Objective of its Block
+  [see `Block::set_objective_weight()`], times the one the Block has read,
+  given in `deserialize()`, rather than being multiplied into the
+  coefficients of its Objective (`scale_objective_recursive()` is gone):
+  any Objective is weighed, not only a `LinearFunction` or a
+  `DQuadFunction`, and the data of the scenarios are those of the file;
+  the Benders form moves the first-stage costs into the master with the
+  weights
+
+- the pipeline builds the module also with its makefiles, after CMake, and
+  runs on a change of the makefiles too [see `ci/makefile` of the umbrella]
+
+- `SMSpp_BUILD_MODULE` no longer stops the configuration when the C++20
+  module cannot be built, i.e., with a CMake older than 3.28, a generator
+  other than Ninja or Visual Studio, a compiler other than Clang 16 (with
+  `clang-scan-deps`) or MSVC 19.34, or a module it imports that is not
+  there: the option is turned off with a warning that says why, and the
+  build goes on with the headers [see `cmake/CheckModule.cmake` of SMS++]
+
+- `TwoStageStochasticBlockSolution::serialize()` writes the solutions of
+  the scenarios stacked in the group `ScenarioSolution` [see
+  `write_stacked()` of SMS++], in a time linear in the number of scenarios
+  (the `Solution` of 200 scenarios of 88 units each took minutes to be
+  written) and with the groups of the solution of one scenario however many
+  the scenarios, rather than going over the 32767 groups a netCDF file
+  holds (that of 20 scenarios of 88 units each went from 1821 groups to
+  10); `deserialize()` still reads the groups `ScenarioSolution_k`
+
+### Fixed
+
+- on Windows, the executables that copy their DLLs next to themselves
+  are linked one at a time (a job pool of Ninja), since two copies of the
+  same DLL into one directory collided (e.g., with the clang++ of MSYS2)
+
+- with the compilers of MinGW (MSYS2) the target asks whoever links it
+  for the symbol that forces the module in, as with MSVC and on macOS:
+  the linker imports a DLL only for the symbols asked for, so that a
+  program that used none had the module left out and its classes
+  missing from the factory
+
+- the makefiles of the tests and of the tools build also with g++: they
+  take the option that stops at the first error and the one of the
+  debugging information, which clang++ and g++ spell differently
+  (`-ferror-limit=1` and `-glldb` against `-fmax-errors=1` and `-ggdb`),
+  from `SMSppSWERR` and `SMSppSWDBG` of `lib/makefile-OS` of SMS++
+
+- a here-and-now `AbstractPath` selecting an explicit, non-contiguous subset
+  of a group of `ColVariable` gives the elements of the subset: the
+  non-anticipativity constraints, `get_first_stage_variables()`,
+  `get_Benders_form()` and the here-and-now values of
+  `TwoStageStochasticBlockSolution` took the k-th element after the first
+  one, i.e., the wrong `Variable`, and possibly past the end of the group
+
+- `generate_objective()` throws `std::invalid_argument` when it has to weigh
+  by a probability other than 1 an Objective of a scenario, or of a Block
+  nested in it, that is not an `FRealObjective` on a `LinearFunction` or a
+  `DQuadFunction`: such an Objective was left as it was, i.e., it counted
+  with weight 1; the same holds for the weights `MultiStageStochasticBlock`
+  gives to its sub-Blocks
+
+- `generate_abstract_constraints()` throws `std::invalid_argument` when an
+  element of a here-and-now `AbstractPath` is no `ColVariable` of a
+  scenario, e.g., an index past the end of its group, rather than building a
+  non-anticipativity constraint on a null `Variable`, which crashed
+
 ## [0.3.0] - 2026-10-09
 
 ### Added
@@ -94,7 +188,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First test release.
 
-[Unreleased]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.3.0...develop
+[Unreleased]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.4.0...develop
+[0.4.0]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.3.0...0.4.0
 [0.3.0]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.2.0...0.3.0
 [0.2.0]: https://gitlab.com/smspp/twostagestochasticblock/-/compare/0.1.0...0.2.0
 [0.1.0]: https://gitlab.com/smspp/twostagestochasticblock/-/tags/0.1.0

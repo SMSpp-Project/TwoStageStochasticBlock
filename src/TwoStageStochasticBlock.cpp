@@ -26,8 +26,6 @@
 
 #include "DataMapping.h"
 
-#include "DQuadFunction.h"
-
 #include "FRealObjective.h"
 
 #include "FRowConstraint.h"
@@ -120,11 +118,18 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
    auto number_variables =
      v_paths_to_static_vars[ i ]->get_number_elements< ColVariable >( block );
    here_and_now_vars[ t ][ i ].resize( number_variables );
-   // pointer to the first ColVariable of a contiguous structure,
-   // i.e., a std::vector or boost::multi_array (since *static* vars)
-   auto * elem = v_paths_to_static_vars[ i ]->get_element< ColVariable >( block );
-   for( int j = 0 ; j < number_variables ; j++ )
-    here_and_now_vars[ t ][ i ][ j ] = elem + j;
+   // the j-th element of the path, which with an explicit subset is not the
+   // j-th one after the first; an element that does not exist, e.g., an
+   // index past the end of its group, would make a constraint on nothing
+   for( int j = 0 ; j < number_variables ; j++ ) {
+    here_and_now_vars[ t ][ i ][ j ] =
+     v_paths_to_static_vars[ i ]->get_element< ColVariable >( block , j );
+    if( ! here_and_now_vars[ t ][ i ][ j ] )
+     throw( std::invalid_argument( "TwoStageStochasticBlock::"
+             "generate_abstract_constraints: element " + std::to_string( j ) +
+             " of the here-and-now path " + std::to_string( i ) +
+             " is no ColVariable of scenario " + std::to_string( t ) ) );
+    }
   }
  }
 
@@ -211,35 +216,8 @@ void TwoStageStochasticBlock::generate_objective( Configuration * objc )
   if( block ) block->generate_objective( objc );
  }
 
- // Scale each scenario block's objective by its probability
- if( scenario_generator && ( ! v_Block.empty() ) ) {
-  // Check if pool is already initialized to avoid re-initialization overhead
-  if( scenario_generator->is_pool_initialized() ) {
-   // Reset to the beginning of existing pool
-   scenario_generator->reset_pool();
-  }
-  else {
-   // Initialize the scenario generator to iterate through all scenarios
-   scenario_generator->init_representative_pool( f_number_scenarios );
-  }
-
-  Index scenario_idx = 0;
-
-  // Use do-while pattern to iterate through scenarios
-  do {
-   if( ( scenario_idx < v_Block.size() ) && v_Block[ scenario_idx ] ) {
-    // Get probability for current scenario
-    double prob = scenario_generator->get_current_scenario_probability();
-    // Scale this scenario's objective
-    scale_objective_recursive( v_Block[ scenario_idx ] , prob );
-   }
-   scenario_idx++;
-  } while( scenario_generator->next_scenario() );
- }
- // Note: If no scenario_generator, objectives remain unscaled (implicitly
- // equal weights)
-
- // Now call base class to aggregate the (already scaled) objectives
+ // the probabilities are the weights of the Objective of the scenarios
+ // [see deserialize()], which the Solver apply: the objectives are summed
  Block::generate_objective( objc );
 
  set_objective_generated();
@@ -295,12 +273,10 @@ std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
   // Get the number of variables this path points to
   auto num_vars = path->get_number_elements< ColVariable >( scenario_0_block );
 
-  // Get pointer to the first variable in the contiguous structure
-  auto * first_var = path->get_element< ColVariable >( scenario_0_block );
-
   // Add all variables from this path to our result vector
   for( Index j = 0 ; j < num_vars ; ++j )
-   first_stage_vars.push_back( first_var + j );
+   first_stage_vars.push_back(
+                    path->get_element< ColVariable >( scenario_0_block , j ) );
  }
 
  return( first_stage_vars );
@@ -320,9 +296,8 @@ AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
 
   for( const auto & p : v_paths_to_static_vars ) {
    const auto nv = p->get_number_elements< ColVariable >( leaf );
-   auto e = p->get_element< ColVariable >( leaf );
    for( Index j = 0 ; j < nv ; ++j )
-    xk[ l ].push_back( e + j );
+    xk[ l ].push_back( p->get_element< ColVariable >( leaf , j ) );
    }
   }
 
@@ -379,10 +354,14 @@ AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
      continue;
 
     if( auto lf = dynamic_cast< LinearFunction * >( obj->get_function() ) ) {
+     // the term enters the master with the weight of its Objective in this
+     // Block [see Block::set_objective_weight()], the probability of the
+     // scenario comprised
+     const double w = obj->get_Block()->get_objective_weight( this );
      const auto & vv = lf->get_v_var();
      for( Index i = 0 ; i < vv.size() ; ++i )
       if( vv[ i ].first == var ) {
-       cost[ j ] += vv[ i ].second;
+       cost[ j ] += w * vv[ i ].second;
        v_Benders_cost.emplace_back( lf , var , vv[ i ].second );
        lf->remove_variable( i );
        break;
@@ -512,10 +491,8 @@ Solution * TwoStageStochasticBlock::get_Solution( Configuration * solc ,
  if( wsol & 2 )
   sol->v_scenario_solutions.resize( get_number_scenarios() );
 
- if( wsol & 4 )
-  throw( std::invalid_argument( "TwoStageStochasticBlock::get_Solution: "
-				"saving of dual variables not implemented yet"
-				) );
+ if( wsol & 4 )  // only marks them: read() sizes them on the constraints
+  sol->v_dual_values.resize( 1 );
  if( ! emptys )
   sol->read( this );
 
@@ -572,78 +549,6 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 /*-------------------------- PRIVATE METHODS -------------------------------*/
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlock::scale_objective_recursive( Block * block ,
-						        double weight )
-{
- if( ! block )
-  return;
-
- // Try to scale the objective of the current block, if present and supported
- if( auto * obj = block->get_objective() ) {
-  if( auto * freal_obj = dynamic_cast< FRealObjective * >( obj ) ) {
-   auto * func = freal_obj->get_function();
-
-   if( auto * linear_func = dynamic_cast< LinearFunction * >( func ) ) {
-
-    // Scale all variable coefficients
-    const Index n_vars = linear_func->get_num_active_var();
-    if( n_vars > 0 ) {
-     Function::Vec_FunctionValue scaled_coeffs;
-     scaled_coeffs.reserve( n_vars );
-
-     for( Index i = 0 ; i < n_vars ; ++i ) {
-      Function::FunctionValue coeff = linear_func->get_coefficient( i );
-      scaled_coeffs.push_back( coeff * weight );
-     }
-
-     // Apply scaled coefficients using modify_coefficients
-     linear_func->modify_coefficients(
-       std::move( scaled_coeffs ) ,
-       Range( 0 , n_vars ) ,
-       eModBlck );
-    }
-
-    // Scale the constant term
-    const auto constant = linear_func->get_constant_term();
-    linear_func->set_constant_term( constant * weight , eModBlck );
-   }
-   else if( auto * quad_func = dynamic_cast< DQuadFunction * >( func ) ) {
-
-    // Scale linear and quadratic coefficients of every active Variable
-    const Index n_vars = quad_func->get_num_active_var();
-    if( n_vars > 0 ) {
-     DQuadFunction::v_coeff scaled_lin;
-     DQuadFunction::v_coeff scaled_quad;
-     scaled_lin.reserve( n_vars );
-     scaled_quad.reserve( n_vars );
-
-     for( Index i = 0 ; i < n_vars ; ++i ) {
-      scaled_lin.push_back(
-       quad_func->get_linear_coefficient( i ) * weight );
-      scaled_quad.push_back(
-       quad_func->get_quadratic_coefficient( i ) * weight );
-     }
-
-     quad_func->modify_terms( scaled_quad.cbegin() , scaled_lin.cbegin() ,
-                              Range( 0 , n_vars ) , eModBlck );
-    }
-
-    // Scale the constant term
-    const auto constant = quad_func->get_constant_term();
-    quad_func->set_constant_term( constant * weight , eModBlck );
-   }
-  }
- }
-
- // Recurse on nested blocks
- const auto & nested_blocks = block->get_nested_Blocks();
- for( auto * nested : nested_blocks )
-  scale_objective_recursive( nested , weight );
-
-}  // end( TwoStageStochasticBlock::scale_objective_recursive )
-
-/*--------------------------------------------------------------------------*/
-
 void TwoStageStochasticBlock::set_scenario_generator(
 						        ScenarioGenerator * generator )
 {
@@ -652,9 +557,37 @@ void TwoStageStochasticBlock::set_scenario_generator(
 
  scenario_generator = generator;
 
- // Note: Scenarios are applied during block creation in deserialize().
- // This method is primarily for setting the generator before deserialization
- // or for future use cases where scenarios might need to be changed.
+ // the data of the scenarios are applied when they are created [see
+ // deserialize()]; to the scenarios already there, if any, the generator
+ // gives their probability, which replaces the one they had in the weight
+ // of their Objective [see Block::set_objective_weight()]
+ if( ( ! scenario_generator ) || v_Block.empty() )
+  return;
+
+ if( scenario_generator->is_pool_initialized() )
+  scenario_generator->reset_pool();
+ else
+  scenario_generator->init_representative_pool( f_number_scenarios );
+
+ std::vector< double > prob;
+ prob.reserve( v_Block.size() );
+ for( Index i = 0 ; i < v_Block.size() ; ++i ) {
+  prob.push_back( scenario_generator->get_current_scenario_probability() );
+  if( ( i + 1 < v_Block.size() ) && ( ! scenario_generator->next_scenario() ) )
+   throw( std::invalid_argument( "TwoStageStochasticBlock::"
+				 "set_scenario_generator: fewer scenarios "
+				 "than Block" ) );
+  }
+
+ for( Index i = 0 ; i < v_Block.size() ; ++i ) {
+  const double old = ( i < v_scenario_probability.size() ) ?
+                     v_scenario_probability[ i ] : 1;
+  if( prob[ i ] != old )
+   v_Block[ i ]->set_objective_weight( v_Block[ i ]->get_objective_weight()
+                                       / old * prob[ i ] );
+  }
+ v_scenario_probability = std::move( prob );
+
 }  // end( TwoStageStochasticBlock::set_scenario_generator )
 
 /*--------------------------------------------------------------------------*/
@@ -697,7 +630,27 @@ void TwoStageStochasticBlockSolution::deserialize(
   ::deserialize( group , f_scenario_solution_fprefix ,
 		 "ScenarioSolutionPrefix" , true );
 
-  if( f_scenario_solution_fprefix.empty() ) {
+  if( auto stack = group.getGroup( "ScenarioSolution" ) ;
+      f_scenario_solution_fprefix.empty() && ( ! stack.isNull() ) ) {
+   // the solutions of the scenarios stacked [see write_stacked()]
+   if( stacked_size( stack ) != std::size_t( NS ) )
+    throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  "ScenarioSolution stacks " +
+			  std::to_string( stacked_size( stack ) ) +
+			  " solutions instead of " + std::to_string( NS ) ) );
+   v_scenario_solutions.resize( NS );
+   for( int i = 0 ; i < NS ; ++i )
+    read_stacked( stack , i , [ & ]( const netCDF::NcGroup & sg ) {
+     v_scenario_solutions[ i ] = Solution::new_Solution( sg );
+     if( ! v_scenario_solutions[ i ] )
+      throw( std::invalid_argument(
+			  "TwoStageStochasticBlockSolution::deserialize: "
+			  "deserialize of the stacked solution " +
+			  std::to_string( i ) + " failed" ) );
+     } );
+   }
+  else if( f_scenario_solution_fprefix.empty() ) {
    for( int i = 0 ; i < NS ; ++i ) {
     std::string sgn = "ScenarioSolution_" + std::to_string( i );
     auto sg = group.getGroup( sgn );
@@ -733,7 +686,12 @@ void TwoStageStochasticBlockSolution::deserialize(
   }
 
  // read the dual variables of non-anticipativity constraints - - - - - - - -
- //!! TODO
+ int tnd = 0;
+ deserialize_dim( group , "TotalNumberNonAnticipativityDuals" , tnd , true );
+ if( tnd )
+  ::deserialize< double >( group , "NonAnticipativityDuals" ,
+			   "NonAnticipativityDualsStart" , v_dual_values ,
+			   true );
 
  }  // end( TwoStageStochasticBlockSolution::deserialize )
 
@@ -754,9 +712,9 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
   for( std::size_t i = 0 ; i < ptshanv.size() ; ++i ) {
    auto nv = ptshanv[ i ]->get_number_elements< ColVariable >( b0 );
    v_here_and_now[ i ].resize( nv );
-   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
-   for( std::size_t j = 0 ; j < nv ; ++j , ++elem )
-    v_here_and_now[ i ][ j ] = elem->get_value();
+   for( std::size_t j = 0 ; j < nv ; ++j )
+    v_here_and_now[ i ][ j ] =
+     ptshanv[ i ]->get_element< ColVariable >( b0 , j )->get_value();
    }
   }
 
@@ -772,7 +730,18 @@ void TwoStageStochasticBlockSolution::read( const Block * block )
   }
 
  // read the dual variables of non-anticipativity constraints - - - - - - - -
- //!! TODO
+ // if the constraints have not been generated there is nothing to read
+ if( ! v_dual_values.empty() ) {
+  const auto & hnc = TSSB->here_and_now_const;
+  v_dual_values.clear();
+  for( std::size_t t = 0 ; t < hnc.shape()[ 0 ] ; ++t )
+   for( std::size_t i = 0 ; i < hnc.shape()[ 1 ] ; ++i ) {
+    std::vector< double > dv( hnc[ t ][ i ].size() );
+    for( std::size_t j = 0 ; j < dv.size() ; ++j )
+     dv[ j ] = hnc[ t ][ i ][ j ].get_dual();
+    v_dual_values.push_back( std::move( dv ) );
+    }
+  }
 
  }  // end( TwoStageStochasticBlockSolution::read )
 
@@ -801,9 +770,9 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 				  "inconsistent number of h&n variables "
 				  "in group " + std::to_string( i ) ) );
 
-   auto * elem = ptshanv[ i ]->get_element< ColVariable >( b0 );
-   for( Block::Index j = 0 ; j < nv ; ++j , ++elem )
-    elem->set_value( v_here_and_now[ i ][ j ] );
+   for( Block::Index j = 0 ; j < nv ; ++j )
+    ptshanv[ i ]->get_element< ColVariable >( b0 , j )->set_value(
+                                                    v_here_and_now[ i ][ j ] );
    }
   }
 
@@ -819,7 +788,23 @@ void TwoStageStochasticBlockSolution::write( Block * block )
   }
 
  // write the dual variables of non-anticipativity constraints- - - - - - - -
- //!! TODO
+ if( ! v_dual_values.empty() ) {
+  auto & hnc = TSSB->here_and_now_const;
+  if( v_dual_values.size() != hnc.shape()[ 0 ] * hnc.shape()[ 1 ] )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				 "inconsistent number of groups of dual "
+				 "values of the here-and-now constraints" ) );
+  auto dv = v_dual_values.begin();
+  for( std::size_t t = 0 ; t < hnc.shape()[ 0 ] ; ++t )
+   for( std::size_t i = 0 ; i < hnc.shape()[ 1 ] ; ++i , ++dv ) {
+    if( dv->size() != hnc[ t ][ i ].size() )
+     throw( std::invalid_argument( "TwoStageStochasticBlockSolution::write: "
+				   "inconsistent number of dual values of "
+				   "the here-and-now constraints" ) );
+    for( std::size_t j = 0 ; j < dv->size() ; ++j )
+     hnc[ t ][ i ][ j ].set_dual( ( *dv )[ j ] );
+    }
+  }
 
  }  // end( TwoStageStochasticBlockSolution::write )
 
@@ -856,11 +841,14 @@ void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
   auto NS = group.addDim( "NumberScenarios" , v_scenario_solutions.size() );
 
   if( f_scenario_solution_fprefix.empty() ) {  // group-based format
-   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
-    std::string sgn = "ScenarioSolution_" + std::to_string( i );
-    auto sg = group.addGroup( sgn );
-    v_scenario_solutions[ i ]->serialize( sg );
-    }
+   std::vector< std::string > names( v_scenario_solutions.size() );
+   for( std::size_t i = 0 ; i < names.size() ; ++i )
+    names[ i ] = "ScenarioSolution_" + std::to_string( i );
+   // stacked in one group, so that the groups of the file are those of one
+   // scenario [see write_stacked()]
+   write_stacked( group , "ScenarioSolution" , names ,
+		  [ & ]( std::size_t i , netCDF::NcGroup & g ) {
+		   v_scenario_solutions[ i ]->serialize( g ); } );
    }
   else {                                       // file-based format
    for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i ) {
@@ -871,8 +859,19 @@ void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
    }
   }
 
- // serialize the scenario dual variables of non-anticipativity constraints - 
- //!! TODO
+ // serialize the dual variables of non-anticipativity constraints - - - - -
+ if( ! v_dual_values.empty() ) {
+  int tnd = 0;
+  for( const auto & dvi : v_dual_values )
+   tnd += dvi.size();
+
+  auto TND = group.addDim( "TotalNumberNonAnticipativityDuals" , tnd );
+  auto NDG = group.addDim( "NumberNonAnticipativityDualGroups" ,
+			   v_dual_values.size() );
+  ::serialize< double >( group , "NonAnticipativityDuals" ,
+			 netCDF::NcDouble() , "NonAnticipativityDualsStart" ,
+			 v_dual_values , TND , NDG );
+  }
 
  }  // end( TwoStageStochasticBlockSolution::serialize( NcGroup & ) )
 
@@ -893,7 +892,9 @@ TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::scale(
  for( auto ssi : sol->v_scenario_solutions )
   ssi->scale( factor );
 
- //!! TODO: deal with v_dual_values
+ for( auto & dvi : sol->v_dual_values )
+  for( auto & dvij : dvi )
+   dvij *= factor;
 
  return( sol );
 
@@ -933,8 +934,18 @@ void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
   v_scenario_solutions[ i ]->sum( TSSBS->v_scenario_solutions[ i ] ,
 				  multiplier );
 
- //!! TODO: deal with v_dual_values
- 
+ if( v_dual_values.size() != TSSBS->v_dual_values.size() )
+  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				"inconsistent number of groups of dual values" ) );
+
+ for( std::size_t i = 0 ; i < v_dual_values.size() ; ++i ) {
+  if( v_dual_values[ i ].size() != TSSBS->v_dual_values[ i ].size() )
+   throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
+				 "inconsistent number of dual values" ) );
+  for( std::size_t j = 0 ; j < v_dual_values[ i ].size() ; ++j )
+   v_dual_values[ i ][ j ] += multiplier * TSSBS->v_dual_values[ i ][ j ];
+  }
+
  }  // end( TwoStageStochasticBlockSolution::sum )
 
 /*--------------------------------------------------------------------------*/
@@ -949,7 +960,7 @@ TwoStageStochasticBlockSolution * TwoStageStochasticBlockSolution::clone(
   sol->v_scenario_solutions.resize( v_scenario_solutions.size() );
   for( std::size_t i = 0 ; i < v_scenario_solutions.size() ; ++i )
    sol->v_scenario_solutions[ i ] = v_scenario_solutions[ i ]->clone();
-  //!! sol->v_dual_values = v_dual_values;
+  sol->v_dual_values = v_dual_values;
   }
 
  return( sol );
