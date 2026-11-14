@@ -222,14 +222,15 @@ namespace SMSpp_di_unipi_it {
   stochastic_block = dynamic_cast< StochasticBlock * >(sb);
 
   if( ! stochastic_block )
-   throw std::logic_error( "TwoStageStochasticBlock::deserialize: sub-Block is "
-    "not a StochasticBlock." );
+   throw( std::logic_error(
+     "TwoStageStochasticBlock::deserialize: sub-Block is "
+     "not a StochasticBlock." ) );
 
   // Save the original inner block to restore later
   auto * original_inner_block = stochastic_block->get_inner_block();
   if( ! original_inner_block )
-   throw std::logic_error( "TwoStageStochasticBlock::deserialize: "
-    "StochasticBlock has no inner block." );
+   throw( std::logic_error( "TwoStageStochasticBlock::deserialize: "
+    "StochasticBlock has no inner block." ) );
 
   v_Block.reserve( f_number_scenarios );
   v_scenario_probability.clear();
@@ -265,15 +266,16 @@ namespace SMSpp_di_unipi_it {
    Block * block_copy = new_Block( Block_group , this );
 
    if( ! block_copy )
-    throw std::logic_error(
+    throw( std::logic_error(
      "TwoStageStochasticBlock::deserialize: failed to create block copy "
      "through deserialization for scenario " +
-     std::to_string( i ) );
+     std::to_string( i ) ) );
 
    if( has_scenarios ) {
     // Apply scenario data from the generator (own DiscreteScenarioSet or an
     // externally-provided view onto a shared scenario tree)
-    // 1. Set the copy as inner block of StochasticBlock (don't destroy previous)
+    // 1. Set the copy as inner block of StochasticBlock (don't destroy
+    //    previous)
     stochastic_block->set_inner_block( block_copy , false );
 
     // 2. Update all DataMapping callers to point to the new block
@@ -334,7 +336,8 @@ namespace SMSpp_di_unipi_it {
   // than replicated in each of them and tied by the non-anticipativity
   // Constraint. There is then nothing to address and nothing to tie
   if( ! static_path_group.isNull() )
-   AbstractPath::vector_deserialize( static_path_group , v_paths_to_static_vars );
+   AbstractPath::vector_deserialize( static_path_group ,
+                                     v_paths_to_static_vars );
 
   auto dynamic_path_group = group.getGroup( "DynamicAbstractPath" );
 
@@ -684,8 +687,8 @@ namespace SMSpp_di_unipi_it {
 
 //  /// apply scenarios to all blocks using the ScenarioGenerator
 //  /** This private helper method applies scenario data to all block copies
-//   * using the configured ScenarioGenerator. It is called during deserialization
-//   * or when blocks are created if a generator is available.
+//   * using the configured ScenarioGenerator. It is called during
+//   deserialization * or when blocks are created if a generator is available.
 //   *
 //   * @param issuePMod Indicates if and how a "physical" Modification should
 //   * be issued.

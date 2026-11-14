@@ -95,7 +95,8 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
  // Ensure variables are generated first
  if( ! variables_generated() ) generate_abstract_variables();
 
- bool gen_seq_anchr_cnstrs = true; // 0: anchor, 1: sequential, sequential by default
+ bool gen_seq_anchr_cnstrs = true; // 0: anchor, 1: sequential, sequential by
+				   // default
  if( ( ! stcc ) && f_BlockConfig )
   stcc = f_BlockConfig->f_static_constraints_Configuration;
  if( auto sci = dynamic_cast< SimpleConfiguration< int > * >( stcc ) )
@@ -142,7 +143,8 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
   }
 
  here_and_now_const.resize(
-   boost::extents[ get_number_scenarios() - 1 ][ v_paths_to_static_vars.size() ] );
+   boost::extents[ get_number_scenarios() -
+		   1 ][ v_paths_to_static_vars.size() ] );
 
  LinearFunction::v_coeff_pair vars;
 
@@ -160,7 +162,8 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
     for( int j = 0 ; j < here_and_now_vars[ t ][ i ].size() ; j++ ) {
      // create a constraint that ensures the j-th variable at the t-th
      // scenario...
-     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] , 1.0 ) );
+     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] ,
+				     1.0 ) );
      // ... is equal to the same j-th variable at (t+1)-th scenario
      vars.push_back( std::make_pair( here_and_now_vars[ t + 1 ][ i ][ j ] ,
                                      -1.0 ) );
@@ -183,13 +186,16 @@ void TwoStageStochasticBlock::generate_abstract_constraints(
   for( int t = 1 ; t < get_number_scenarios() ; ++t ) {
    // loop through each here-and-now variable
    for( int i = 0 ; i < v_paths_to_static_vars.size(); ++i ) {
-    here_and_now_const[ t - 1 ][ i ].resize( here_and_now_vars[ t ][ i ].size() );
+    here_and_now_const[ t -
+			1 ][ i ].resize( here_and_now_vars[ t ][ i ].size() );
     for( int j = 0 ; j < here_and_now_vars[ t ][ i ].size() ; j++ ) {
      // create a constraint that ensures the j-th variable at the first
      // scenario...
-     vars.push_back( std::make_pair( here_and_now_vars[ 0 ][ i ][ j ] , 1.0 ) );
+     vars.push_back( std::make_pair( here_and_now_vars[ 0 ][ i ][ j ] ,
+				     1.0 ) );
      // ... is equal to the same j-th variable at t-th scenario
-     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] , -1.0 ) );
+     vars.push_back( std::make_pair( here_and_now_vars[ t ][ i ][ j ] ,
+				     -1.0 ) );
 
      here_and_now_const[ t - 1 ][ i ][ j ].set_both( 0.0 );
      here_and_now_const[ t - 1 ][ i ][ j ].set_function(
@@ -250,8 +256,8 @@ Block *TwoStageStochasticBlock::get_sub_Block( Index scenario ) const
 
 /*--------------------------------------------------------------------------*/
 
-std::vector< ColVariable * > TwoStageStochasticBlock::get_first_stage_variables(
-						        void ) const
+std::vector< ColVariable * >
+TwoStageStochasticBlock::get_first_stage_variables( void ) const
 {
  std::vector< ColVariable * > first_stage_vars;
 
@@ -550,7 +556,7 @@ void TwoStageStochasticBlock::serialize( netCDF::NcGroup & group ) const
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlock::set_scenario_generator(
-						        ScenarioGenerator * generator )
+						ScenarioGenerator * generator )
 {
  // Clean up previous generator if any
  if( scenario_generator ) delete scenario_generator;
@@ -595,7 +601,7 @@ void TwoStageStochasticBlock::set_scenario_generator(
 /*--------------------------------------------------------------------------*/
 
 void TwoStageStochasticBlockSolution::deserialize(
-						        const netCDF::NcGroup & group )
+						const netCDF::NcGroup & group )
 {
  // call the method of the base class - not, it does nothing
  // Solution::deserialize( group );
@@ -810,7 +816,8 @@ void TwoStageStochasticBlockSolution::write( Block * block )
 
 /*--------------------------------------------------------------------------*/
 
-void TwoStageStochasticBlockSolution::serialize( netCDF::NcGroup & group ) const
+void TwoStageStochasticBlockSolution::serialize(
+					      netCDF::NcGroup & group ) const
 {
  // call the method of the base class
  Solution::serialize( group );
@@ -935,8 +942,9 @@ void TwoStageStochasticBlockSolution::sum( const Solution * solution ,
 				  multiplier );
 
  if( v_dual_values.size() != TSSBS->v_dual_values.size() )
-  throw( std::invalid_argument( "TwoStageStochasticBlockSolution::sum: "
-				"inconsistent number of groups of dual values" ) );
+  throw( std::invalid_argument(
+	     "TwoStageStochasticBlockSolution::sum: "
+	     "inconsistent number of groups of dual values" ) );
 
  for( std::size_t i = 0 ; i < v_dual_values.size() ; ++i ) {
   if( v_dual_values[ i ].size() != TSSBS->v_dual_values[ i ].size() )

@@ -332,7 +332,8 @@ int main( int argc , char ** argv )
    if( block ) {
     auto * tssb3 = dynamic_cast< TwoStageStochasticBlock * >( block );
     if( tssb3 ) {
-     cout << " SUCCESS (scenarios: " << tssb3->get_number_scenarios() << ")" << endl;
+     cout << " SUCCESS (scenarios: " << tssb3->get_number_scenarios() << ")"
+          << endl;
     } else {
      cout << " FAILED: not a TwoStageStochasticBlock" << endl;
     }
