@@ -546,7 +546,10 @@ namespace SMSpp_di_unipi_it {
   * written as dynamic FRowConstraint. The cost of the design is taken out of
   * the Objective of every leaf, where it is a term of a LinearFunction, and
   * summed into that of the root: the value of a leaf can then only decrease
-  * as x grows, which is what the sign of a Benders cut is read off.
+  * as x grows, which is what the sign of a Benders cut is read off. The
+  * sub-Block carries the weight of the ancestors of its leaf below this
+  * Block [see Block::get_objective_weight()], which the leaf, once moved,
+  * would lose.
   *
   * The leaves are moved into the returned AbstractBlock rather than copied,
   * hence this TwoStageStochasticBlock cannot be used until

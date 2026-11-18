@@ -390,12 +390,18 @@ AbstractBlock * TwoStageStochasticBlock::get_Benders_form( void )
  robj->set_sense( Objective::eMin );
  root->set_objective( robj );
 
- // one sub-Block per leaf, the wrapper carrying the coupling
+ /* one sub-Block per leaf, the wrapper carrying the coupling and the weight
+  * of the ancestors of the leaf below this Block, which the leaf leaves
+  * behind while keeping its own */
  v_Benders_father.resize( L );
  for( Index l = 0 ; l < L ; ++l ) {
   auto leaf = get_leaf_block( l );
+  const double wa = leaf->get_objective_weight( this ) /
+                    leaf->get_objective_weight();
   v_Benders_father[ l ] = leaf->get_f_Block();
   auto sub = new AbstractBlock( root );
+  if( wa != 1 )
+   sub->set_objective_weight( wa );
 
   /* the wrapper adds nothing to the Objective of the leaf, but it has to say
    * which way the subproblem goes: a Block with no Objective answers eUndef,

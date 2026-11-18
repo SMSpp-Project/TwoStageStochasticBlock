@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the one of `smspp_install_rpath()`, with no test on the system or on the
   compiler [see `SMSppModule.cmake` of SMS++]; CMake 3.24 or later is needed
 
+### Fixed
+
+- in the form of `get_Benders_form()` the sub-Block of a leaf carries the
+  weight of the ancestors of the leaf below the `TwoStageStochasticBlock`,
+  which was lost when the leaf was moved, e.g., the probability of a
+  scenario stated on a Block between the two
+
 ## [0.5.0] - 2026-11-16
 
 
